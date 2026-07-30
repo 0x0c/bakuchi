@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0x0c/bakuchi/spec/event.schema.json",
+  "title": "ABKit Event Batch",
+  "description": "SDK から event-gateway へ送るイベントバッチ。at-least-once 配送であり、event_id による冪等排除を前提とする。",
+  "type": "object",
+  "required": ["batch_id", "sent_at", "app", "device", "sdk", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "batch_id": { "type": "string", "format": "uuid" },
+    "sent_at": {
+      "type": "string", "format": "date-time",
+      "description": "★ 送信直前にクライアントが打刻する。サーバ受信時刻との差から端末時計の skew を推定するために使う（C5）。"
+    },
+    "app": {
+      "type": "object",
+      "required": ["id", "version", "build"],
+      "additionalProperties": false,
+      "properties": {
+        "id":      { "type": "string" },
+        "version": { "type": "string", "examples": ["5.12.0"] },
+        "build":   { "type": "string" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["platform", "os_version"],
+      "additionalProperties": false,
+      "properties": {
+        "platform":   { "type": "string", "enum": ["ios", "android"] },
+        "os_version": { "type": "string" },
+        "model":      { "type": "string", "examples": ["iPhone16,1", "Pixel 9"] },
+        "locale":     { "type": "string", "examples": ["ja_JP"] },
+        "timezone":   { "type": "string", "examples": ["Asia/Tokyo"] }
+      }
+    },
+    "sdk": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name":    { "type": "string", "enum": ["abkit-ios", "abkit-android", "abkit-go"] },
+        "version": { "type": "string" }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 500,
+      "items": { "$ref": "#/$defs/event" }
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "required": ["event_id", "event_name", "unit", "client_ts"],
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "type": "string", "format": "uuid",
+          "description": "UUIDv7（クライアント生成）。重複排除のキー。再送時も同一の値を保つこと。"
+        },
+        "event_name": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "$ 始まりは SDK 予約（$exposure / $session_start / $app_started / $sdk_health）。"
+        },
+        "unit": {
+          "type": "object",
+          "required": ["install_id"],
+          "additionalProperties": false,
+          "properties": {
+            "install_id": { "type": "string", "description": "初回起動時に採番する UUID。広告 ID や端末 ID を使ってはならない（C7）。" },
+            "user_id":    { "type": ["string", "null"] },
+            "account_id": { "type": ["string", "null"] },
+            "session_id": { "type": "string" }
+          }
+        },
+        "client_ts": {
+          "type": "string", "format": "date-time",
+          "description": "端末の壁時計。信用できない。サーバ側で corrected_ts に補正される。"
+        },
+        "client_uptime_ms": {
+          "type": "integer",
+          "description": "単調増加時計。★ バッチ内のイベント順序はこの値で決定する。壁時計は使わない（C5）。"
+        },
+        "config_version": { "type": "integer" },
+        "config_source": {
+          "type": "string",
+          "enum": ["bundled", "cached", "fetched"],
+          "description": "bundled は初回起動時にバイナリ同梱コンフィグで評価されたことを示す。解析時のブレイクダウン軸として必須（C6）。"
+        },
+        "props": {
+          "type": "object",
+          "description": "イベント固有の属性。gateway が許可リストで検証し、PII パターンを検出したら拒否する。",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null"] },
+          "properties": {
+            "experiment_key": { "type": "string" },
+            "variant":        { "type": "string" },
+            "layer":          { "type": "string" },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "ASSIGNED",
+                "FLAG_NOT_FOUND",
+                "KILLED",
+                "OUT_OF_VERSION_RANGE",
+                "NOT_TARGETED",
+                "DEPENDENCY_NOT_MET",
+                "UNIT_UNAVAILABLE",
+                "NOT_IN_LAYER",
+                "UNASSIGNED",
+                "OVERRIDE",
+                "EVAL_ERROR"
+              ],
+              "description": "なぜそのバリアントになったか。運用上の問い合わせ対応に必須。ASSIGNED 以外はサンプリング送信する。"
+            },
+            "is_override": { "type": "boolean", "description": "QA による強制割当。解析から除外する。" }
+          }
+        }
+      }
+    }
+  }
+}

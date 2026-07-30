@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0x0c/bakuchi/spec/config-bundle.schema.json",
+  "title": "ABKit Config Bundle",
+  "description": "SDK に配信されるコンパイル済みコンフィグ。不変オブジェクトとして S3 に置かれ CDN 経由で配信される。SDK は未知のフィールド・未知の列挙値を無視し、安全側（デフォルト）にフォールバックしなければならない。",
+  "type": "object",
+  "required": ["config_version", "generated_at", "app_id", "platform", "sdk_major", "layers", "flags"],
+  "additionalProperties": false,
+  "properties": {
+    "config_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "単調増加。ETag および巻き戻し先の識別に使う。SDK は現在保持しているものより小さい版を採用してはならない。"
+    },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "app_id":   { "type": "string", "examples": ["com.example.app"] },
+    "platform": { "type": "string", "enum": ["ios", "android"] },
+    "sdk_major": {
+      "type": "integer",
+      "description": "このバンドルが対象とする SDK メジャーバージョン。builder は、この SDK が解釈できないオペレータを含む実験を除外して生成する。"
+    },
+    "signature": {
+      "type": "string",
+      "description": "signature を除いた本体の JCS 正規化に対する Ed25519 署名（base64）。SDK は埋め込み公開鍵で検証する。"
+    },
+    "sdk_kill": {
+      "type": "object",
+      "description": "SDK 自体の緊急停止。アプリ再リリースなしに全実験をデフォルトへ倒す最終手段。",
+      "additionalProperties": false,
+      "properties": {
+        "max_sdk_version": { "type": "string", "description": "このバージョン以下の SDK を無効化する" },
+        "action": { "type": "string", "enum": ["disable_all", "disable_fetch", "disable_events"] },
+        "message": { "type": "string" }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "description": "SDK の動作パラメータ。リモートで調整可能にしておく。",
+      "additionalProperties": false,
+      "properties": {
+        "fetch_interval_sec":      { "type": "integer", "default": 900 },
+        "event_batch_size":        { "type": "integer", "default": 20 },
+        "event_flush_interval_sec":{ "type": "integer", "default": 30 },
+        "event_queue_max_bytes":   { "type": "integer", "default": 5242880 },
+        "unassigned_exposure_sampling_rate": {
+          "type": "number", "minimum": 0, "maximum": 1, "default": 0.01,
+          "description": "reason != ASSIGNED の曝露を送るサンプリング率。イベント量の主要な制御点。"
+        }
+      }
+    },
+    "layers": {
+      "type": "array",
+      "description": "排他グループ。同一レイヤー内の実験は被験者が重複しない。",
+      "items": {
+        "type": "object",
+        "required": ["key", "salt"],
+        "additionalProperties": false,
+        "properties": {
+          "key":  { "type": "string", "pattern": "^[a-z0-9_]+$" },
+          "salt": { "type": "string", "pattern": "^layer:[a-z0-9_]+:[0-9]+$" }
+        }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/flag" }
+    }
+  },
+  "$defs": {
+    "flag": {
+      "type": "object",
+      "required": ["key", "salt", "randomization_unit", "variants", "default_variant"],
+      "additionalProperties": false,
+      "properties": {
+        "key":  { "type": "string", "pattern": "^[a-z0-9_]+$" },
+        "salt": {
+          "type": "string",
+          "pattern": "^exp:[a-z0-9_]+:[0-9]+$",
+          "description": "末尾が seed。インクリメントすると再ランダム化される。"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["experiment", "rollout", "operational"],
+          "default": "experiment",
+          "description": "operational は曝露イベントを送らない純粋な運用フラグ（キルスイッチ等）。"
+        },
+        "randomization_unit": {
+          "type": "string",
+          "enum": ["install_id", "user_id", "account_id", "session_id"]
+        },
+        "sticky": {
+          "type": "boolean", "default": false,
+          "description": "true の場合、一度割り当てたバリアントを端末に永続化して維持する。seed 変更時は破棄する。"
+        },
+        "layer": {
+          "type": "object",
+          "description": "レイヤー所属。省略時はレイヤー非所属（他実験と直交して重複割当される）。",
+          "required": ["key", "range_start", "range_end"],
+          "additionalProperties": false,
+          "properties": {
+            "key":         { "type": "string" },
+            "range_start": { "type": "integer", "minimum": 0, "maximum": 9999 },
+            "range_end":   { "type": "integer", "minimum": 1, "maximum": 10000, "description": "排他的上限" }
+          }
+        },
+        "targeting": { "$ref": "#/$defs/condition" },
+        "variants": {
+          "type": "array",
+          "minItems": 1,
+          "description": "★ この配列の順序が割当計算に影響する。SDK は並べ替えてはならない。",
+          "items": {
+            "type": "object",
+            "required": ["key", "weight_bp"],
+            "additionalProperties": false,
+            "properties": {
+              "key": { "type": "string" },
+              "weight_bp": {
+                "type": "integer", "minimum": 0, "maximum": 10000,
+                "description": "basis points。整数のみ。浮動小数点は言語間の丸め差を生むため禁止。"
+              },
+              "params": {
+                "type": "object",
+                "description": "このバリアントが返すパラメータ。SDK は型不一致時に呼び出し側のデフォルトを返す。",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "default_variant": {
+          "type": "string",
+          "description": "ターゲティング外・未割当・評価失敗時に返すバリアントのキー。前方互換性の要（C1）。"
+        }
+      }
+    },
+    "condition": {
+      "description": "ターゲティング条件木。SDK が未知の op を見つけた場合、その条件は false と評価し、フラグ全体を default_variant に倒す（安全側）。",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["op", "conditions"],
+          "additionalProperties": false,
+          "properties": {
+            "op":         { "type": "string", "enum": ["and", "or", "not"] },
+            "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["op", "attribute", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "eq", "neq", "in", "not_in",
+                "version_gte", "version_lt", "version_between",
+                "gt", "gte", "lt", "lte",
+                "starts_with", "contains", "regex"
+              ]
+            },
+            "attribute": {
+              "type": "string",
+              "description": "app_version / os_version / platform / country / locale / device_model のほか、アプリが渡す任意の属性 (custom.*)",
+              "examples": ["app_version", "country", "custom.plan"]
+            },
+            "value": {}
+          }
+        }
+      ]
+    }
+  }
+}

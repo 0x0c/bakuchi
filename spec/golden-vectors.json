@@ -1,0 +1,457 @@
+{
+  "$comment": "Golden vectors for the ABKit deterministic bucketing algorithm. Every SDK (Swift/Kotlin/Go/Python/TypeScript) MUST reproduce these exactly.",
+  "algorithm": {
+    "input": "salt + \":\" + unit_id, encoded as UTF-8",
+    "hash": "SHA-256",
+    "extract": "first 4 bytes of the digest, interpreted as big-endian uint32",
+    "bucket": "uint32 % 10000",
+    "total_buckets": 10000
+  },
+  "bucket_vectors": [
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "sha256_prefix_hex": "57deee64",
+      "uint32_be": 1474227812,
+      "bucket": 7812
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "sha256_prefix_hex": "14155c09",
+      "uint32_be": 336944137,
+      "bucket": 4137
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "user_1",
+      "sha256_prefix_hex": "6a19fb07",
+      "uint32_be": 1780087559,
+      "bucket": 7559
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "user_2",
+      "sha256_prefix_hex": "1b543a2e",
+      "uint32_be": 458504750,
+      "bucket": 4750
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "user_1000000",
+      "sha256_prefix_hex": "54b7296c",
+      "uint32_be": 1421289836,
+      "bucket": 9836
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "ユーザー1",
+      "sha256_prefix_hex": "87a5fa22",
+      "uint32_be": 2275801634,
+      "bucket": 1634
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256_prefix_hex": "57dee965",
+      "uint32_be": 1474226533,
+      "bucket": 6533
+    },
+    {
+      "salt": "layer:checkout:1",
+      "unit_id": "",
+      "sha256_prefix_hex": "64a25c6e",
+      "uint32_be": 1688362094,
+      "bucket": 2094
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "sha256_prefix_hex": "a8f3a5e1",
+      "uint32_be": 2834540001,
+      "bucket": 1
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "sha256_prefix_hex": "dd66db7e",
+      "uint32_be": 3714505598,
+      "bucket": 5598
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1",
+      "sha256_prefix_hex": "68f59338",
+      "uint32_be": 1760924472,
+      "bucket": 4472
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_2",
+      "sha256_prefix_hex": "3ce2be40",
+      "uint32_be": 1021492800,
+      "bucket": 2800
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1000000",
+      "sha256_prefix_hex": "df7f2a78",
+      "uint32_be": 3749653112,
+      "bucket": 3112
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "ユーザー1",
+      "sha256_prefix_hex": "91027479",
+      "uint32_be": 2432857209,
+      "bucket": 7209
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256_prefix_hex": "a1a24d00",
+      "uint32_be": 2711768320,
+      "bucket": 8320
+    },
+    {
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "",
+      "sha256_prefix_hex": "65e64d92",
+      "uint32_be": 1709591954,
+      "bucket": 1954
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "sha256_prefix_hex": "c530cd6b",
+      "uint32_be": 3308309867,
+      "bucket": 9867
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "sha256_prefix_hex": "7abdb3b5",
+      "uint32_be": 2059252661,
+      "bucket": 2661
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "user_1",
+      "sha256_prefix_hex": "69d722ac",
+      "uint32_be": 1775706796,
+      "bucket": 6796
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "user_2",
+      "sha256_prefix_hex": "118ea8fc",
+      "uint32_be": 294562044,
+      "bucket": 2044
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "user_1000000",
+      "sha256_prefix_hex": "4950a871",
+      "uint32_be": 1230022769,
+      "bucket": 2769
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "ユーザー1",
+      "sha256_prefix_hex": "3416201d",
+      "uint32_be": 873865245,
+      "bucket": 5245
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256_prefix_hex": "f32ee1dc",
+      "uint32_be": 4079935964,
+      "bucket": 5964
+    },
+    {
+      "salt": "exp:checkout_button_v2:2",
+      "unit_id": "",
+      "sha256_prefix_hex": "3788cc46",
+      "uint32_be": 931712070,
+      "bucket": 2070
+    }
+  ],
+  "assignment_vectors": [
+    {
+      "case": "50/50",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "splits": [
+        [
+          "control",
+          5000
+        ],
+        [
+          "treatment",
+          5000
+        ]
+      ],
+      "bucket": 1,
+      "variant": "control"
+    },
+    {
+      "case": "50/50",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "splits": [
+        [
+          "control",
+          5000
+        ],
+        [
+          "treatment",
+          5000
+        ]
+      ],
+      "bucket": 5598,
+      "variant": "treatment"
+    },
+    {
+      "case": "50/50",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1",
+      "splits": [
+        [
+          "control",
+          5000
+        ],
+        [
+          "treatment",
+          5000
+        ]
+      ],
+      "bucket": 4472,
+      "variant": "control"
+    },
+    {
+      "case": "50/50",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_2",
+      "splits": [
+        [
+          "control",
+          5000
+        ],
+        [
+          "treatment",
+          5000
+        ]
+      ],
+      "bucket": 2800,
+      "variant": "control"
+    },
+    {
+      "case": "50/50",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1000000",
+      "splits": [
+        [
+          "control",
+          5000
+        ],
+        [
+          "treatment",
+          5000
+        ]
+      ],
+      "bucket": 3112,
+      "variant": "control"
+    },
+    {
+      "case": "33/33/34",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "splits": [
+        [
+          "control",
+          3333
+        ],
+        [
+          "variant_a",
+          3333
+        ],
+        [
+          "variant_b",
+          3334
+        ]
+      ],
+      "bucket": 1,
+      "variant": "control"
+    },
+    {
+      "case": "33/33/34",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "splits": [
+        [
+          "control",
+          3333
+        ],
+        [
+          "variant_a",
+          3333
+        ],
+        [
+          "variant_b",
+          3334
+        ]
+      ],
+      "bucket": 5598,
+      "variant": "variant_a"
+    },
+    {
+      "case": "33/33/34",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1",
+      "splits": [
+        [
+          "control",
+          3333
+        ],
+        [
+          "variant_a",
+          3333
+        ],
+        [
+          "variant_b",
+          3334
+        ]
+      ],
+      "bucket": 4472,
+      "variant": "variant_a"
+    },
+    {
+      "case": "33/33/34",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_2",
+      "splits": [
+        [
+          "control",
+          3333
+        ],
+        [
+          "variant_a",
+          3333
+        ],
+        [
+          "variant_b",
+          3334
+        ]
+      ],
+      "bucket": 2800,
+      "variant": "control"
+    },
+    {
+      "case": "33/33/34",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1000000",
+      "splits": [
+        [
+          "control",
+          3333
+        ],
+        [
+          "variant_a",
+          3333
+        ],
+        [
+          "variant_b",
+          3334
+        ]
+      ],
+      "bucket": 3112,
+      "variant": "control"
+    },
+    {
+      "case": "90/10_rollout",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "00000000-0000-0000-0000-000000000000",
+      "splits": [
+        [
+          "control",
+          9000
+        ],
+        [
+          "treatment",
+          1000
+        ]
+      ],
+      "bucket": 1,
+      "variant": "control"
+    },
+    {
+      "case": "90/10_rollout",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "1e5b3f0a-9c2d-4f8e-8a1b-2c3d4e5f6071",
+      "splits": [
+        [
+          "control",
+          9000
+        ],
+        [
+          "treatment",
+          1000
+        ]
+      ],
+      "bucket": 5598,
+      "variant": "control"
+    },
+    {
+      "case": "90/10_rollout",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1",
+      "splits": [
+        [
+          "control",
+          9000
+        ],
+        [
+          "treatment",
+          1000
+        ]
+      ],
+      "bucket": 4472,
+      "variant": "control"
+    },
+    {
+      "case": "90/10_rollout",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_2",
+      "splits": [
+        [
+          "control",
+          9000
+        ],
+        [
+          "treatment",
+          1000
+        ]
+      ],
+      "bucket": 2800,
+      "variant": "control"
+    },
+    {
+      "case": "90/10_rollout",
+      "salt": "exp:checkout_button_v2:1",
+      "unit_id": "user_1000000",
+      "splits": [
+        [
+          "control",
+          9000
+        ],
+        [
+          "treatment",
+          1000
+        ]
+      ],
+      "bucket": 3112,
+      "variant": "control"
+    }
+  ]
+}
