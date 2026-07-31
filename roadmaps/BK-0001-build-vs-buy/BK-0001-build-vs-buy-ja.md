@@ -20,7 +20,7 @@ A/B テストプラットフォームには成熟した商用製品が複数あ�
 すべて、ここでの答えが「構築する」であることを前提にしています。答えが違えば、ほかの項目はどれも
 成立しません。
 
-この判断は好みではなく関門です。[`docs/09-roadmap.md`](../../docs/09-roadmap.md) に定めた 2 週間の
+この判断は好みではなく関門です。[`docs/09-roadmap-ja.md`](../../docs/09-roadmap-ja.md) に定めた 2 週間の
 Phase 0 で一度だけ評価し、「構築しない」という結論もその段階の成功とみなします。
 
 ## 動機
@@ -100,8 +100,8 @@ Phase 0 で一度だけ評価し、「構築しない」という結論もその
 
 ## 参考
 
-- [`docs/09-roadmap.md`](../../docs/09-roadmap.md)：この判断を下す Phase 0。
-- [`docs/03-tech-selection.md`](../../docs/03-tech-selection.md)：「構築する」という結論を前提と
+- [`docs/09-roadmap-ja.md`](../../docs/09-roadmap-ja.md)：この判断を下す Phase 0。
+- [`docs/03-tech-selection-ja.md`](../../docs/03-tech-selection-ja.md)：「構築する」という結論を前提と
   した技術選定。
 - [BK-0006](../BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection-ja.md)：同じ
   段階で決めるウェアハウスの判断。

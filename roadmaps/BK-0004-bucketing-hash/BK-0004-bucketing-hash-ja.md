@@ -52,7 +52,7 @@ bucket(salt, unit_id):
     return n mod 10000
 ```
 
-規範的な記述と言語別の参照実装は [`spec/bucketing.md`](../../spec/bucketing.md) に置いています。
+規範的な記述と言語別の参照実装は [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md) に置いています。
 
 ### 各要素の根拠
 
@@ -99,7 +99,7 @@ Java と Kotlin には符号なし 32 ビット整数がないため、`ByteBuff
 
 ## 進捗
 
-- [x] [`spec/bucketing.md`](../../spec/bucketing.md) にアルゴリズムを規定。
+- [x] [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md) にアルゴリズムを規定。
 - [x] ゴールデンベクタを生成し、Python、Node、Go で相互検証。
 - [x] 適合性チェッカ [`tools/verify_vectors.py`](../../tools/verify_vectors.py) を用意。ベクタ、
       分布の一様性、再ランダム化の独立性を検証します。
@@ -107,7 +107,7 @@ Java と Kotlin には符号なし 32 ビット整数がないため、`ByteBuff
 
 ## 参考
 
-- [`spec/bucketing.md`](../../spec/bucketing.md)：規範仕様。
+- [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md)：規範仕様。
 - [`spec/golden-vectors.json`](../../spec/golden-vectors.json)：バケットベクタ 24 本と割当ベクタ
   15 本。空文字列、非 ASCII、長いユニット識別子を含みます。
 - [BK-0003](../BK-0003-native-sdks/BK-0003-native-sdks-ja.md)：この選択を後押しする無依存制約。

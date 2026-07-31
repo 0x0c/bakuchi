@@ -1,94 +1,113 @@
-# bakuchi — iOS / Android 両対応 A/B テストプラットフォーム 設計
+**English** · [日本語](README-ja.md)
 
-モバイル（iOS / Android）を第一級市民として扱う、実験プラットフォームの技術選定と設計。
-フィーチャーフラグ配信・被験者割当・イベント収集・統計解析までを一気通貫で扱う。
+# bakuchi — an A/B testing platform designed for iOS and Android
 
-## ロードマップの一覧ページ
+bakuchi is the technology selection and design for an experimentation platform that treats mobile as
+a first-class citizen. The design covers the whole path end to end: delivering feature flags,
+assigning subjects to variants, collecting events, and analyzing the result statistically.
 
-BK 項目の一覧: **https://0x0c.github.io/bakuchi/**
+## The roadmap index page
 
-[roadmaps/](roadmaps/) の各項目を、状態（可決 / 提案 / 提案（保留））ごとに束ねて採番順に並べる。
-タイトル・状態・トピック・関連は各項目の BK-METADATA が出典で、フェーズは項目の「作業」節が
-明記しているものだけを引く。日英どちらの版へも 1 クリックで飛べる。
-ソースは [site/](site/)、`main` への push で GitHub Actions が自動デプロイする
-（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。ビルドステップはなく、
-素の HTML / CSS / ES モジュールで完結する。ローカルで見るには任意の静的サーバを使う
-（`python3 -m http.server --directory site`）。ES モジュールを読むため `file://` では動かない。
+An index of the BK items: **https://0x0c.github.io/bakuchi/**
 
-初回のみ、リポジトリ設定 → Pages → Build and deployment → Source を **GitHub Actions**
-にする必要がある。`GITHUB_TOKEN` では Pages サイトそのものを作成できないため、
-この一手だけはワークフローから自動化できない。
+The page lists every item under [roadmaps/](roadmaps/), grouped by status — accepted, proposal,
+proposal (deferred) — and ordered by number within each group. The title, status, topic, and related
+items all come from each item's BK-METADATA block, and the phase is drawn only where the item's
+progress section states one. Either language version is one click away. The source lives in
+[site/](site/), and a push to `main` deploys it through GitHub Actions
+([.github/workflows/pages.yml](.github/workflows/pages.yml)). There is no build step — the page is
+plain HTML, CSS, and ES modules. To read it locally, serve the directory with any static server
+(`python3 -m http.server --directory site`); the page loads ES modules, so `file://` does not work.
 
-## ドキュメント構成
+One setting must be made by hand the first time: repository settings → Pages → Build and
+deployment → Source must be set to **GitHub Actions**. A workflow cannot automate that one step,
+because `GITHUB_TOKEN` cannot create the Pages site itself.
 
-| ドキュメント | 内容 |
+## The documents
+
+| Document | Contents |
 |---|---|
-| [docs/01-requirements.md](docs/01-requirements.md) | 要求仕様。**モバイル固有の制約**（アプリのリリースサイクル、オフライン、遅延到着）はここが起点 |
-| [docs/02-architecture.md](docs/02-architecture.md) | 全体アーキテクチャ、サービス分割、シーケンス |
-| [docs/03-tech-selection.md](docs/03-tech-selection.md) | 技術選定と比較表、採用理由 |
-| [docs/04-client-sdk.md](docs/04-client-sdk.md) | iOS / Android SDK 設計（API、評価モデル、ライフサイクル） |
-| [docs/05-services.md](docs/05-services.md) | 各マイクロサービスの責務・API・データモデル |
-| [docs/06-data-pipeline.md](docs/06-data-pipeline.md) | イベント基盤、遅延到着データ、時刻補正 |
-| [docs/07-statistics.md](docs/07-statistics.md) | 統計設計（SRM、CUPED、逐次検定、多重比較） |
-| [docs/08-operations.md](docs/08-operations.md) | SLO、リリース、ロールバック、プライバシー |
-| [docs/09-roadmap.md](docs/09-roadmap.md) | 段階的な構築計画 |
+| [docs/01-requirements.md](docs/01-requirements.md) | The requirements. The **mobile-specific constraints** — app release cycles, offline operation, late-arriving events — start here |
+| [docs/02-architecture.md](docs/02-architecture.md) | The overall architecture, the service split, and the sequences |
+| [docs/03-tech-selection.md](docs/03-tech-selection.md) | Technology selection, the comparisons, and the reasoning behind each choice |
+| [docs/04-client-sdk.md](docs/04-client-sdk.md) | The iOS and Android SDK design: the API, the evaluation model, and the lifecycle |
+| [docs/05-services.md](docs/05-services.md) | Each microservice's responsibility, API, and data model |
+| [docs/06-data-pipeline.md](docs/06-data-pipeline.md) | The event pipeline, late-arriving data, and clock correction |
+| [docs/07-statistics.md](docs/07-statistics.md) | The statistical design: sample ratio mismatch, CUPED, sequential testing, and multiple comparisons |
+| [docs/08-operations.md](docs/08-operations.md) | Service level objectives, releases, rollback, and privacy |
+| [docs/09-roadmap.md](docs/09-roadmap.md) | The phased build plan |
 
-## ロードマップ（設計判断の記録）
+Every document exists in English and Japanese. The English file carries the plain name and the
+Japanese file the `-ja` suffix, so [docs/01-requirements.md](docs/01-requirements.md) and
+[docs/01-requirements-ja.md](docs/01-requirements-ja.md) are the same document in two languages.
+Neither is a summary of the other.
 
-主要な設計判断と、未決着の論点は、採番された **BK 項目**として [roadmaps/](roadmaps/) に日英両方で
-置いています。書式と追加手順は [roadmaps/README-ja.md](roadmaps/README-ja.md) にあります。
+## The roadmap as a record of decisions
 
-| ID | 項目 | Status |
+Each major design decision, and each question still open, lives in [roadmaps/](roadmaps/) as a
+numbered **BK item** written in both languages. The format and the procedure for adding an item are
+in [roadmaps/README.md](roadmaps/README.md).
+
+| ID | Item | Status |
 |---|---|---|
-| [BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md) | 自前構築か既製品か | 可決 |
-| [BK-0002](roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md) | 割当をサーバではなく端末内で評価する | 可決 |
-| [BK-0003](roadmaps/BK-0003-native-sdks/BK-0003-native-sdks-ja.md) | ネイティブ 2 実装の SDK を、ゴールデンベクタで担保する | 可決 |
-| [BK-0004](roadmaps/BK-0004-bucketing-hash/BK-0004-bucketing-hash-ja.md) | 決定的バケッティングに SHA-256 を用いる | 可決 |
-| [BK-0005](roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md) | コンフィグをセッション内でシールする | 可決 |
-| [BK-0006](roadmaps/BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection-ja.md) | ClickHouse と既存 DWH のどちらを採るか | 提案 |
-| [BK-0007](roadmaps/BK-0007-revisit-kmp-shared-core/BK-0007-revisit-kmp-shared-core-ja.md) | 共有 Kotlin Multiplatform コアの再評価 | 提案（保留） |
-| [BK-0008](roadmaps/BK-0008-config-bundle-signing/BK-0008-config-bundle-signing-ja.md) | コンフィグバンドルの Ed25519 署名 | 提案 |
-| [BK-0009](roadmaps/BK-0009-flink-late-data/BK-0009-flink-late-data-ja.md) | 遅延到着イベントの再処理に Flink を導入する | 提案（保留） |
+| [BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy.md) | Build or buy the experimentation platform | Accepted |
+| [BK-0002](roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation.md) | Evaluate assignment on the device rather than on the server | Accepted |
+| [BK-0003](roadmaps/BK-0003-native-sdks/BK-0003-native-sdks.md) | Two native SDK implementations, held together by golden vectors | Accepted |
+| [BK-0004](roadmaps/BK-0004-bucketing-hash/BK-0004-bucketing-hash.md) | Use SHA-256 for deterministic bucketing | Accepted |
+| [BK-0005](roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config.md) | Seal the configuration for the whole session | Accepted |
+| [BK-0006](roadmaps/BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection.md) | ClickHouse or an existing data warehouse | Proposal |
+| [BK-0007](roadmaps/BK-0007-revisit-kmp-shared-core/BK-0007-revisit-kmp-shared-core.md) | Revisit a shared Kotlin Multiplatform core | Proposal (deferred) |
+| [BK-0008](roadmaps/BK-0008-config-bundle-signing/BK-0008-config-bundle-signing.md) | Sign the configuration bundle with Ed25519 | Proposal |
+| [BK-0009](roadmaps/BK-0009-flink-late-data/BK-0009-flink-late-data.md) | Adopt Flink to reprocess late-arriving events | Proposal (deferred) |
 
-一覧は `python3 tools/roadmap_query.py --status "Proposal"` でも引けます。
+The same list can be queried with `python3 tools/roadmap_query.py --status "Proposal"`.
 
-## 仕様（実装が従う規範）
+## The specifications an implementation must satisfy
 
-| ファイル | 内容 |
+| File | Contents |
 |---|---|
-| [spec/bucketing.md](spec/bucketing.md) | 決定的バケッティングアルゴリズムの規範仕様 |
-| [spec/golden-vectors.json](spec/golden-vectors.json) | 全 SDK が再現すべきゴールデンベクタ |
-| [spec/config-bundle.schema.json](spec/config-bundle.schema.json) | 配信コンフィグの JSON Schema |
-| [spec/event.schema.json](spec/event.schema.json) | イベントスキーマ |
-| [tools/verify_vectors.py](tools/verify_vectors.py) | ゴールデンベクタ適合性チェッカ |
+| [spec/bucketing.md](spec/bucketing.md) | The normative specification of the deterministic bucketing algorithm |
+| [spec/golden-vectors.json](spec/golden-vectors.json) | The golden vectors every SDK must reproduce |
+| [spec/config-bundle.schema.json](spec/config-bundle.schema.json) | The JSON Schema for the delivered configuration |
+| [spec/event.schema.json](spec/event.schema.json) | The event schema |
+| [tools/verify_vectors.py](tools/verify_vectors.py) | The golden-vector conformance checker |
 
-## ツールとエージェント
+## Tools and agents
 
 ```bash
-./tools/check.sh          # 決定的な検証ゲート（ベクタ・ロードマップ形式・JSON・textlint）
+./tools/check.sh          # the deterministic gates: vectors, roadmap format, JSON, textlint
 ```
 
-| ファイル | 内容 |
+| File | Contents |
 |---|---|
-| [tools/check.sh](tools/check.sh) | すべてのゲートをまとめて実行する |
-| [tools/check_roadmap_format.py](tools/check_roadmap_format.py) | ロードマップ項目の正規形チェッカ |
-| [tools/new_roadmap_item.py](tools/new_roadmap_item.py) | 項目の雛形生成と ID 採番 |
-| [tools/roadmap_query.py](tools/roadmap_query.py) | Status によるロードマップの絞り込み |
-| [.agent-workflows/](.agent-workflows/) | エージェント向けワークフロー（文章規範、起票、実装、レビュー追従） |
-| [.claude/skills/](.claude/skills/) | 上記への Claude Code アダプタ |
+| [tools/check.sh](tools/check.sh) | Runs every gate in one command |
+| [tools/check_roadmap_format.py](tools/check_roadmap_format.py) | The canonical-form checker for roadmap items |
+| [tools/new_roadmap_item.py](tools/new_roadmap_item.py) | Scaffolds an item and allocates its number |
+| [tools/roadmap_query.py](tools/roadmap_query.py) | Filters the roadmap by `Status` |
+| [.agent-workflows/](.agent-workflows/) | Workflows for agents: the prose norm, proposing, implementing, and following up on review |
+| [.claude/skills/](.claude/skills/) | The Claude Code adapters for those workflows |
 
-ワークフローと文章規範は [Bajutsu](https://github.com/bajutsu-e2e/bajutsu) から Apache License 2.0
-のもとで借用し、bakuchi 向けに改変しています。帰属表示は
-[.agent-workflows/NOTICE](.agent-workflows/NOTICE) にあります。
+The workflows and the prose norm are borrowed from
+[Bajutsu](https://github.com/bajutsu-e2e/bajutsu) under the Apache License 2.0 and adapted for
+bakuchi. The attribution is in [.agent-workflows/NOTICE](.agent-workflows/NOTICE).
 
-## 設計の要点（3行）
+## The design in three lines
 
-1. **端末内評価（local evaluation）** — 割当をサーバに問い合わせない。コンフィグを丸ごと配信し端末で決める。ネットワーク遅延ゼロ・オフライン動作・障害時も既存挙動を維持。
-2. **セッション内シール（session-sealed）** — 起動時に確定した割当をセッション中は変えない。画面ごとに UI が変わる事故を構造的に排除する。
-3. **決定性の一点管理** — 割当は `SHA-256(salt + ":" + unit_id)` のみに依存。Swift / Kotlin / Go / Python の全実装が同一のゴールデンベクタで CI 検証される。
+1. **Local evaluation.** The device never asks a server which variant a user gets. The whole
+   configuration is delivered, and the device decides — which means no network latency, offline
+   operation, and unchanged behavior during an outage.
+2. **Session-sealed configuration.** The assignment fixed at startup does not change for the rest of
+   the session, which structurally rules out a user interface that shifts from screen to screen.
+3. **One place where determinism lives.** An assignment depends on `SHA-256(salt + ":" + unit_id)`
+   and nothing else, and every implementation — Swift, Kotlin, Go, and Python — is verified in
+   continuous integration against the same golden vectors.
 
-## 前提と適用範囲
+## Assumptions and scope
 
-- 想定規模: MAU 100 万〜1000 万、同時実行実験 50〜200、イベント 10 億件/日 程度まで単一構成でスケールする想定。
-- これ未満の規模では自前構築は割に合わない。[BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md) に判断基準と SaaS/OSS 採用の推奨を記載。
-- 本リポジトリは設計ドキュメントであり、実装は含まない（[docs/09-roadmap.md](docs/09-roadmap.md) の Phase 1 から着手する）。
+- The design targets 1 to 10 million monthly active users, 50 to 200 concurrent experiments, and
+  event volume up to roughly a billion events per day on a single deployment.
+- Below that scale, building this platform does not pay for itself.
+  [BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy.md) records the criteria for that
+  judgment and recommends the software-as-a-service and open-source products to adopt instead.
+- This repository holds design documents and no implementation. Building starts at Phase 1 of
+  [docs/09-roadmap.md](docs/09-roadmap.md).

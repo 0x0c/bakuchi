@@ -1,93 +1,107 @@
-# 決定的バケッティング — 規範仕様
+**English** · [日本語](bucketing-ja.md)
 
-このドキュメントは**規範（normative）** である。Swift / Kotlin / Go / Python / TypeScript のすべての実装はここに完全に従い、[golden-vectors.json](golden-vectors.json) を CI で検証すること。
+# Deterministic bucketing — normative specification
 
-割当の決定性が壊れると、実験結果が静かに無意味になる。バグが表に出ないので、テストで守るしかない。
+This document is **normative**. Every implementation — Swift, Kotlin, Go, Python, and TypeScript —
+follows it exactly and verifies [golden-vectors.json](golden-vectors.json) in continuous
+integration.
 
-## 1. アルゴリズム
+When determinism in assignment breaks, experiment results quietly become meaningless. The bug never
+surfaces on its own, so tests are the only defense.
+
+## 1. The algorithm
 
 ```
 bucket(salt, unit_id):
     input  := UTF-8( salt + ":" + unit_id )
     digest := SHA-256(input)                    # 32 bytes
-    n      := uint32_big_endian(digest[0..4])   # 先頭 4 バイト
+    n      := uint32_big_endian(digest[0..4])   # the leading 4 bytes
     return n mod 10000                          # 0..9999
 ```
 
-### 各要素の根拠
+### The reasoning behind each element
 
-| 要素 | 選択 | 理由 |
+| Element | Choice | Reason |
 |---|---|---|
-| ハッシュ関数 | SHA-256 | すべての言語の標準ライブラリに存在し、**実装のバリエーションがない**。MurmurHash3 は x86_32 / x86_128 / x64_128 の亜種があり、シード解釈も実装ごとに揺れる。性能差（数百 ns）はアプリ起動時に数十回呼ぶだけの用途では無関係 |
-| 区切り文字 | `:` | `salt` と `unit_id` の境界を固定し、`("ab","c")` と `("a","bc")` が衝突しないようにする。**`salt` と `unit_id` に `:` を含めてはならない**（§5） |
-| バイト取り出し | 先頭 4 バイト、ビッグエンディアン | 「先頭」「ビッグエンディアン」はどの言語でも曖昧さがない。リトルエンディアンだと環境依存の実装ミスを誘発する |
-| バケット数 | 10000 | 0.01%（1 basis point）単位の配分ができる。10 万や 100 万にしても実務上の利得がない |
-| 剰余 | `mod 10000` | §4 参照 |
+| Hash function | SHA-256 | It exists in every language's standard library and **has no implementation variants**. MurmurHash3 has x86_32, x86_128, and x64_128 variants, and implementations interpret its seed differently. The performance difference of a few hundred nanoseconds is irrelevant for a function called a few dozen times at app startup |
+| Separator | `:` | It fixes the boundary between `salt` and `unit_id` so that `("ab","c")` and `("a","bc")` cannot collide. **Neither `salt` nor `unit_id` may contain `:`** (§5) |
+| Byte extraction | The leading 4 bytes, big-endian | "Leading" and "big-endian" are unambiguous in every language. Little-endian invites platform-dependent implementation mistakes |
+| Bucket count | 10000 | It allows allocation in units of 0.01%, one basis point. Raising it to 100,000 or a million buys nothing in practice |
+| Modulo | `mod 10000` | See §4 |
 
-## 2. バリアント割当
+## 2. Variant assignment
 
 ```
 assign(experiment, unit_id):
     b   := bucket(experiment.salt, unit_id)
     cum := 0
-    for each variant in experiment.variants:     # ★ 定義順を厳守
+    for each variant in experiment.variants:     # ★ definition order, strictly
         cum += variant.weight_bp                 # basis points (out of 10000)
         if b < cum:
             return variant
     return UNASSIGNED
 ```
 
-- `weight_bp` は 0..10000 の整数。**浮動小数点を使ってはならない**（丸め差で言語間の割当がずれる）。
-- バリアントの走査順は**コンフィグ内の定義順**。実装が名前でソートしたりマップの反復順に依存してはならない。
-- 合計が 10000 未満の場合、残りは未割当（実験対象外）。これは部分ロールアウトの表現に使う。
+- `weight_bp` is an integer from 0 to 10000. **Floating point must not be used**, because rounding differences shift assignment between languages.
+- Variants are walked in **the order they appear in the configuration**. An implementation must not sort by name or depend on a map's iteration order.
+- When the weights sum to less than 10000, the remainder is unassigned and outside the experiment. That is how a partial rollout is expressed.
 
-## 3. レイヤーとの二段階割当
+## 3. Two-stage assignment with layers
 
 ```
-b_layer := bucket(layer.salt,      unit_id)   # レイヤー内での位置
-b_var   := bucket(experiment.salt, unit_id)   # バリアント割当
+b_layer := bucket(layer.salt,      unit_id)   # the position within the layer
+b_var   := bucket(experiment.salt, unit_id)   # the variant assignment
 ```
 
-**2 つの salt は必ず異なる値にする。** 同一 salt を使うと、レイヤー範囲の端に配置された実験でバリアントが偏る（レイヤー範囲 [0,1000) の実験なら b_var も 0..999 にしかならず、最初のバリアントに全員入る）。
+**The two salts must always differ.** With one salt, variants skew for an experiment placed at the
+edge of a layer: an experiment on the layer range [0,1000) would only ever see `b_var` values of 0
+to 999, putting every subject in the first variant.
 
-salt の構成規則:
+The rule for composing a salt:
 
 ```
 layer.salt      = "layer:" + layer_key + ":" + layer_seed
 experiment.salt = "exp:"   + experiment_key + ":" + experiment_seed
 ```
 
-`seed` をインクリメントすると、過去の割当と統計的に独立な新しい割当が得られる（検証済み: seed 変更後も同一バリアントに残る割合は 0.5009、期待値 0.5）。再ランダム化はこの操作で行う。
+Incrementing `seed` yields a new assignment statistically independent of the previous one — verified:
+after a seed change, the share of subjects remaining in the same variant was 0.5009 against an
+expected 0.5. Re-randomization is performed through that operation.
 
-## 4. 剰余バイアスについて
+## 4. On modulo bias
 
-`2^32 mod 10000 = 7296` であるため、バケット 0..7295 はバケット 7296..9999 よりわずかに選ばれやすい。
+Because `2^32 mod 10000 = 7296`, buckets 0 through 7295 are marginally more likely than buckets 7296
+through 9999.
 
-相対的な偏りは `7296 / 2^32 ≈ 1.7 × 10⁻⁶`。
+The relative bias is `7296 / 2^32 ≈ 1.7 × 10⁻⁶`.
 
-**この偏りは無視してよい。** 1 億ユーザを割り当てても偏りは期待値で 0.17 人分にしかならず、いかなる実験の検定統計量にも影響しない。棄却サンプリングによる補正は、実装を複雑にして言語間の不一致リスクを上げるだけで割に合わない。
+**The bias can be ignored.** Assigning 100 million users skews the expectation by 0.17 of a user,
+which cannot affect the test statistic of any experiment. Correcting it with rejection sampling
+would only complicate the implementations and raise the risk of disagreement between languages.
 
-実測での一様性検証（20 万件の合成 UUID を 100 群に分割。`tools/verify_vectors.py --distribution` で再現可能）:
+Uniformity as measured — 200,000 synthetic UUIDs split into 100 groups, reproducible with
+`tools/verify_vectors.py --distribution`:
 
 ```
-χ²(df=99) = 88.68     （期待値 ≈ 99、5% 棄却限界 ≈ 123.2）
-50/50 分割: control 25,029 / treatment 24,971
+χ²(df=99) = 88.68     (expected ≈ 99, the 5% critical value ≈ 123.2)
+a 50/50 split: control 25,029 / treatment 24,971
 ```
 
-## 5. 実装上の必須要件
+## 5. Mandatory requirements on an implementation
 
-| 要件 | 理由 |
+| Requirement | Reason |
 |---|---|
-| 入力は必ず **UTF-8** バイト列として扱う | Swift の `String.utf8`、Kotlin の `toByteArray(Charsets.UTF_8)` を明示する。プラットフォーム既定エンコーディングに依存しない |
-| `salt` / `unit_id` に `:` を含めない | 境界の曖昧性を排除する。実験キーは `[a-z0-9_]+` に制限し、`unit_id` は生成時に検証する |
-| `unit_id` の正規化をしない | 大文字小文字変換・トリムなどを勝手に行わない。サーバとクライアントで正規化が食い違うと割当がずれる |
-| 空文字列の `unit_id` を許容する | クラッシュしてはならない。ゴールデンベクタに含まれている |
-| 非 ASCII の `unit_id` を許容する | 同上。UTF-8 として一貫して扱えば問題ない |
-| 32 ビット環境でのオーバーフロー | `uint32` として扱う。符号付き 32 ビット整数に読むと負値になり `mod` の結果が言語ごとに変わる（C 系は負、Python は正）。**必ず符号なしで扱う** |
+| Treat the input as **UTF-8** bytes, always | State it explicitly with Swift's `String.utf8` and Kotlin's `toByteArray(Charsets.UTF_8)`, rather than depending on the platform's default encoding |
+| Never allow `:` in `salt` or `unit_id` | It removes any ambiguity about the boundary. Experiment keys are restricted to `[a-z0-9_]+`, and `unit_id` is validated when generated |
+| Never normalize `unit_id` | Do not silently change case or trim whitespace. Assignment diverges when the server and the client normalize differently |
+| Accept an empty `unit_id` | It must not crash. The golden vectors include this case |
+| Accept a non-ASCII `unit_id` | The same. Handled consistently as UTF-8, it presents no problem |
+| Overflow on 32-bit platforms | Treat the value as `uint32`. Reading it into a signed 32-bit integer produces a negative number, and the result of `mod` then varies by language — negative in the C family, positive in Python. **Always treat it as unsigned** |
 
-最後の項目が最も事故りやすい。Java / Kotlin には符号なし 32 ビット整数がないため、`ByteBuffer.getInt()` の結果を `.toLong() and 0xFFFFFFFFL` で符号なしに変換する必要がある。
+The last requirement causes the most accidents. Java and Kotlin have no unsigned 32-bit integer, so
+the result of `ByteBuffer.getInt()` must be converted with `.toLong() and 0xFFFFFFFFL`.
 
-## 6. 参照実装
+## 6. Reference implementations
 
 ### Kotlin
 
@@ -100,7 +114,7 @@ object Bucketing {
     fun bucket(salt: String, unitId: String): Int {
         val digest = MessageDigest.getInstance("SHA-256")
             .digest("$salt:$unitId".toByteArray(Charsets.UTF_8))
-        // 先頭 4 バイトをビッグエンディアンの符号なし 32bit として読む
+        // read the leading 4 bytes as a big-endian unsigned 32-bit integer
         val n = ((digest[0].toLong() and 0xFF) shl 24) or
                 ((digest[1].toLong() and 0xFF) shl 16) or
                 ((digest[2].toLong() and 0xFF) shl 8)  or
@@ -149,15 +163,19 @@ def bucket(salt: str, unit_id: str) -> int:
     return struct.unpack(">I", digest[:4])[0] % TOTAL_BUCKETS
 ```
 
-## 7. 適合性テスト
+## 7. Conformance tests
 
-すべての実装は [golden-vectors.json](golden-vectors.json) の全ベクタを再現しなければならない。
+Every implementation must reproduce every vector in [golden-vectors.json](golden-vectors.json).
 
-- 24 個の `bucket_vectors`（3 salt × 8 unit_id。空文字列・非 ASCII・128 文字の長い ID を含む）
-- 15 個の `assignment_vectors`（50/50、33/33/34、90/10 の 3 配分）
+- 24 `bucket_vectors` (3 salts × 8 unit identifiers, including an empty string, a non-ASCII string, and a 128-character identifier)
+- 15 `assignment_vectors` (three allocations: 50/50, 33/33/34, and 90/10)
 
-各ベクタは `sha256_prefix_hex` と `uint32_be` も持っているので、**不一致時にどの段階で壊れているかが特定できる**。ハッシュが合っているのにバケットが合わなければ剰余か符号の扱い、ハッシュが合わなければエンコーディングか区切り文字。
+Each vector also carries `sha256_prefix_hex` and `uint32_be`, which **identifies the stage that
+broke when a vector fails**. A matching hash with a mismatched bucket points at the modulo or the
+sign handling; a mismatched hash points at the encoding or the separator.
 
-検証ツール: [../tools/verify_vectors.py](../tools/verify_vectors.py)
+The verification tool is [../tools/verify_vectors.py](../tools/verify_vectors.py).
 
-CI での実行は必須とし、不一致の場合はマージをブロックする。実体は [`.github/workflows/check.yml`](../.github/workflows/check.yml) で、[`tools/check.sh`](../tools/check.sh) を走らせている。
+Running it in continuous integration is mandatory, and a mismatch blocks the merge. The job lives in
+[`.github/workflows/check.yml`](../.github/workflows/check.yml) and runs
+[`tools/check.sh`](../tools/check.sh).
