@@ -27,10 +27,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # リポジトリ側で Pages が未設定でも、ソースを GitHub Actions にして有効化する
+      # 事前にリポジトリ設定 → Pages → Build and deployment → Source を
+      # "GitHub Actions" にしておく必要がある。GITHUB_TOKEN では Pages サイトを
+      # 作成できず（Resource not accessible by integration）、enablement: true でも
+      # 代替できないため、この一手だけは人が行う。
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

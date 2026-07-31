@@ -10,7 +10,13 @@
 [docs/09-roadmap.md](docs/09-roadmap.md) を出典に、フェーズのタイムライン（最短・最長の幅つき）、
 各フェーズの成果物と「意図的にやらないこと」、領域ごとのケイパビリティ導入マップを表示する。
 ソースは [site/](site/)、`main` への push で GitHub Actions が自動デプロイする
-（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。
+（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。ビルドステップはなく、
+素の HTML / CSS / ES モジュールで完結する。ローカルで見るには任意の静的サーバを使う
+（`python3 -m http.server --directory site`）。ES モジュールを読むため `file://` では動かない。
+
+初回のみ、リポジトリ設定 → Pages → Build and deployment → Source を **GitHub Actions**
+にする必要がある。`GITHUB_TOKEN` では Pages サイトそのものを作成できないため、
+この一手だけはワークフローから自動化できない。
 
 ## ドキュメント構成
 
