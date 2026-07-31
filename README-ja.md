@@ -44,20 +44,8 @@ BK 項目の一覧: **https://0x0c.github.io/bakuchi/**
 
 主要な設計判断と、未決着の論点は、採番された **BK 項目**として [roadmaps/](roadmaps/) に日英両方で
 置いています。書式と追加手順は [roadmaps/README-ja.md](roadmaps/README-ja.md) にあります。
-
-| ID | 項目 | Status |
-|---|---|---|
-| [BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md) | 自前構築か既製品か | 可決 |
-| [BK-0002](roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md) | 割当をサーバではなく端末内で評価する | 可決 |
-| [BK-0003](roadmaps/BK-0003-native-sdks/BK-0003-native-sdks-ja.md) | ネイティブ 2 実装の SDK を、ゴールデンベクタで担保する | 可決 |
-| [BK-0004](roadmaps/BK-0004-bucketing-hash/BK-0004-bucketing-hash-ja.md) | 決定的バケッティングに SHA-256 を用いる | 可決 |
-| [BK-0005](roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md) | コンフィグをセッション内でシールする | 可決 |
-| [BK-0006](roadmaps/BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection-ja.md) | ClickHouse と既存 DWH のどちらを採るか | 提案 |
-| [BK-0007](roadmaps/BK-0007-revisit-kmp-shared-core/BK-0007-revisit-kmp-shared-core-ja.md) | 共有 Kotlin Multiplatform コアの再評価 | 提案（保留） |
-| [BK-0008](roadmaps/BK-0008-config-bundle-signing/BK-0008-config-bundle-signing-ja.md) | コンフィグバンドルの Ed25519 署名 | 提案 |
-| [BK-0009](roadmaps/BK-0009-flink-late-data/BK-0009-flink-late-data-ja.md) | 遅延到着イベントの再処理に Flink を導入する | 提案（保留） |
-
-一覧は `python3 tools/roadmap_query.py --status "Proposal"` でも引けます。
+最新の一覧は上記の[ロードマップの一覧ページ](#ロードマップの一覧ページ)、または
+`python3 tools/roadmap_query.py --status "Proposal"` で引けます。
 
 ## 仕様（実装が従う規範）
 
