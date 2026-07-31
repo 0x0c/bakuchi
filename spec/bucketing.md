@@ -160,4 +160,4 @@ def bucket(salt: str, unit_id: str) -> int:
 
 検証ツール: [../tools/verify_vectors.py](../tools/verify_vectors.py)
 
-CI での実行は必須とし、不一致の場合はマージをブロックする。
+CI での実行は必須とし、不一致の場合はマージをブロックする。実体は [`.github/workflows/check.yml`](../.github/workflows/check.yml) で、[`tools/check.sh`](../tools/check.sh) を走らせている。

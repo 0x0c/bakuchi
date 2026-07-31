@@ -124,7 +124,7 @@ sequenceDiagram
     SDK->>GW: POST /v1/events （バッチ・後述の条件で送信）
 ```
 
-**要点:** フェッチしたコンフィグは**そのセッションでは使わない**。次回起動から効く。これが C1/C6 に対する構造的な答えで、詳細は [ADR-0005](adr/0005-session-sealed-config.md)。
+**要点:** フェッチしたコンフィグは**そのセッションでは使わない**。次回起動から効く。これが C1/C6 に対する構造的な答えで、詳細は [BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md)。
 
 ### 3.2 実験の公開
 

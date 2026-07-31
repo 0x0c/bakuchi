@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "英語のファイル専用。roadmaps/**/BK-*.md（-ja でないもの）と roadmaps/README.md に適用する。",
+    "ja-technical-writing の sentence-length は文字数で数えるため、英語の正常な文でも常に",
+    "超過する（upstream 自身の英語ファイルでも 100 件超の指摘が出る）。日本語プリセットは外す。",
+    "write-good と alex は助言であって規則ではなく、インフラの技術文書では誤検出が多い",
+    "（`simple` を insensitive、`fires` を profane、受動態を一律に指摘する）。severity: warning に",
+    "して、指摘は出しつつ判定はしない。受動態や語の強さは人間のレビューが扱う領域でもある。"
+  ],
+  "rules": {
+    "write-good": {
+      "severity": "warning"
+    },
+    "alex": {
+      "severity": "warning",
+      "allow": [
+        "host-hostess"
+      ]
+    },
+    "stop-words": true,
+    "abbr-within-parentheses": true,
+    "ukraine": true,
+    "no-mixed-zenkaku-and-hankaku-alphabet": true
+  }
+}
