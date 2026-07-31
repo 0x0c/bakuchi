@@ -60,21 +60,9 @@ Neither is a summary of the other.
 
 Each major design decision, and each question still open, lives in [roadmaps/](roadmaps/) as a
 numbered **BK item** written in both languages. The format and the procedure for adding an item are
-in [roadmaps/README.md](roadmaps/README.md).
-
-| ID | Item | Status |
-|---|---|---|
-| [BK-0001](roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy.md) | Build or buy the experimentation platform | Accepted |
-| [BK-0002](roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation.md) | Evaluate assignment on the device rather than on the server | Accepted |
-| [BK-0003](roadmaps/BK-0003-native-sdks/BK-0003-native-sdks.md) | Two native SDK implementations, held together by golden vectors | Accepted |
-| [BK-0004](roadmaps/BK-0004-bucketing-hash/BK-0004-bucketing-hash.md) | Use SHA-256 for deterministic bucketing | Accepted |
-| [BK-0005](roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config.md) | Seal the configuration for the whole session | Accepted |
-| [BK-0006](roadmaps/BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection.md) | ClickHouse or an existing data warehouse | Proposal |
-| [BK-0007](roadmaps/BK-0007-revisit-kmp-shared-core/BK-0007-revisit-kmp-shared-core.md) | Revisit a shared Kotlin Multiplatform core | Proposal (deferred) |
-| [BK-0008](roadmaps/BK-0008-config-bundle-signing/BK-0008-config-bundle-signing.md) | Sign the configuration bundle with Ed25519 | Proposal |
-| [BK-0009](roadmaps/BK-0009-flink-late-data/BK-0009-flink-late-data.md) | Adopt Flink to reprocess late-arriving events | Proposal (deferred) |
-
-The same list can be queried with `python3 tools/roadmap_query.py --status "Proposal"`.
+in [roadmaps/README.md](roadmaps/README.md). The full, current list lives at the
+[roadmap index page](#the-roadmap-index-page) above, or can be queried with
+`python3 tools/roadmap_query.py --status "Proposal"`.
 
 ## The specifications an implementation must satisfy
 
