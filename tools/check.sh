@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+# 決定的な検証ゲート。緑ならマージ可、赤ならマージ不可。
+#
+# 判定するのは機械的に判定できるものだけ。散文の明晰さや論証の順序は
+# レビュー時の人間の判断に委ねる（.agent-workflows/document-writing/workflow.md）。
+set -uo pipefail
+
+cd "$(dirname "$0")/.."
+
+failed=0
+run () {
+  local name="$1"; shift
+  printf '\n\033[1m==> %s\033[0m\n' "$name"
+  if "$@"; then
+    return 0
+  fi
+  printf '\033[31mFAILED: %s\033[0m\n' "$name"
+  failed=1
+}
+
+run "決定性: バケッティングのゴールデンベクタ" \
+  python3 tools/verify_vectors.py --distribution
+
+run "形式: ロードマップ項目の正規形" \
+  python3 tools/check_roadmap_format.py
+
+run "整合性: 仕様ファイルの JSON" \
+  python3 -c '
+import json, glob, sys
+bad = 0
+for f in sorted(glob.glob("spec/*.json")):
+    try:
+        json.load(open(f, encoding="utf-8"))
+        print(f"OK   {f}")
+    except Exception as e:
+        print(f"FAIL {f}: {e}"); bad = 1
+sys.exit(bad)
+'
+
+# textlint は node と、一度の `npm ci` が必要。未導入ならスキップし、その旨を明示する。
+#
+# 言語ごとに config を分けて 2 回走らせる。1 つの config に overrides を書く方法は
+# 採れない: textlint は overrides.files を config ファイル自身のディレクトリ基準で
+# 照合するため、リポジトリ側のファイルには一致せず、日本語ルールが「静かに 1 つも
+# 走らない」状態になる。緑に見えて何も検査していない状態が最も危ないため、
+# 対象ファイルを明示して 2 回呼ぶ。
+TEXTLINT_DIR=.agent-workflows/document-writing/textlint
+
+# ゲートの対象は、この文章規範のもとで書かれた文書にかぎる。docs/ と spec/ は規範を
+# 導入する前に書いたもので、まだ適合していない（docs/ に 30 件、spec/ に 7 件の指摘）。
+# 適合していない文書を対象に含めるとゲートが恒常的に赤くなり、ゲートとして機能しなくなる。
+# 移行は roadmaps/README.md の Unsorted ideas に項目として積んである。
+ja_files () {
+  find roadmaps -name '*-ja.md'
+  echo README.md
+}
+en_files () {
+  find roadmaps -name 'BK-*.md' ! -name '*-ja.md'
+  echo roadmaps/README.md
+}
+
+printf '\n\033[1m==> 文章: textlint\033[0m\n'
+if [ -d "$TEXTLINT_DIR/node_modules" ]; then
+  for lang in ja en; do
+    printf -- '--- %s ---\n' "$lang"
+    # shellcheck disable=SC2046
+    if npx --prefix "$TEXTLINT_DIR" textlint \
+        --config "$TEXTLINT_DIR/.textlintrc.${lang}.json" $("${lang}_files"); then
+      echo "OK"
+    else
+      printf '\033[31mFAILED: textlint (%s)\033[0m\n' "$lang"
+      failed=1
+    fi
+  done
+else
+  printf '\033[33mSKIPPED\033[0m — 未セットアップ。次を一度実行すること:\n'
+  printf '  npm --prefix %s ci --ignore-scripts\n' "$TEXTLINT_DIR"
+fi
+
+printf '\n'
+if [ "$failed" -eq 0 ]; then
+  printf '\033[32mすべてのゲートが緑\033[0m\n'
+else
+  printf '\033[31m赤いゲートがある\033[0m\n'
+fi
+exit "$failed"

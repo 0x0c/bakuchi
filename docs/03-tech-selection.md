@@ -4,7 +4,7 @@
 
 ## 0. 前提: そもそも作るべきか
 
-先に片付ける。**MAU 100 万未満、年間実験数 50 未満なら自前構築は割に合わない。** GrowthBook（OSS・自己ホスト可）か Firebase A/B Testing で始めるべき。判断基準の詳細は [ADR-0001](adr/0001-build-vs-buy.md)。
+先に片付ける。**MAU 100 万未満、年間実験数 50 未満なら自前構築は割に合わない。** GrowthBook（OSS・自己ホスト可）か Firebase A/B Testing で始めるべき。判断基準の詳細は [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md)。
 
 以降は「作る」と決めた場合の設計。
 
@@ -113,8 +113,8 @@ Phase 1 でいきなり Flink を入れるのは過剰。運用できるチー�
 | 不採用 | 理由 |
 |---|---|
 | GraphQL（SDK 対向） | CDN でキャッシュできない。コンフィグ配信は単一 GET が正解 |
-| WebSocket / SSE でのコンフィグ push | モバイルで常時接続を維持するのはバッテリーと接続管理のコストが見合わない。次回起動反映で十分（[ADR-0005](adr/0005-session-sealed-config.md)） |
-| サーバサイド評価を主経路にする | [ADR-0002](adr/0002-local-evaluation.md) |
+| WebSocket / SSE でのコンフィグ push | モバイルで常時接続を維持するのはバッテリーと接続管理のコストが見合わない。次回起動反映で十分（[BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md)） |
+| サーバサイド評価を主経路にする | [BK-0002](../roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md) |
 | Firebase Remote Config を配信層に流用 | 配信だけは楽になるが、レイヤー排他・スティッキー割当・曝露ログの整合が自前実装になり、結局二重管理になる |
 | gRPC-Web / Connect（SDK 対向） | モバイルで HTTP/JSON 以上の利得が薄く、CDN 互換性を失う |
 | exactly-once セマンティクス | at-least-once + `event_id` 冪等排除で十分。コストが見合わない |

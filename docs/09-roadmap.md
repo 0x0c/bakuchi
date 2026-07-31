@@ -6,7 +6,7 @@
 
 作る前に確かめる。
 
-- [ ] [ADR-0001](adr/0001-build-vs-buy.md) の判断基準に照らし、本当に自前構築すべきか結論を出す
+- [ ] [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md) の判断基準に照らし、本当に自前構築すべきか結論を出す
 - [ ] 既存の DWH（BigQuery / Snowflake）の有無を確認 → あれば ClickHouse を採用しない
 - [ ] 想定イベント量とコストの試算
 - [ ] iOS / Android チームに SDK のサイズ・起動時間予算を提示して合意を取る

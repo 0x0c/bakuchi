@@ -1,0 +1,60 @@
+{
+  "$comment": [
+    "日本語のファイル専用。roadmaps/**/*-ja.md、README.md、docs/、spec/ に適用する。",
+    "upstream のルール集合をほぼそのまま使う。sentence-length と max-comma は、",
+    "表や箇条書きを多用する技術文書向けにやや緩めてある。",
+    "no-mix-dearu-desumasu の既定は箇条書きを である調 に強制するが、japanese-document-writing の規範は文書全体を敬体と定めているため、リストも ですます に揃える。見出しは体言止めなので判定対象から外す。",
+    "spellcheck-tech-word / ja-hiragana-fukushi / ja-hiragana-hojodoushi / general-novel-style-ja は無効化した。日本語に英数字の識別子が混在する本リポジトリの文章では、--fix が意味を壊す書き換えを出すため（session-sealed → セッション-sealed、費用 → 費よう、99.99% → 99.99％ を確認）。閾値を緩めて指摘を逃れたのではなく、出力が誤っているルールを外している。",
+    "no-mix-dearu-desumasu の strict は false にする。strict: true は「〜であり」「〜であるため」のような連体修飾節・接続形まで指摘するが、japanese-document-writing の規範は「敬体にするのは文末の述語だけで、連体修飾節や接続・条件の形は常体のままにする」と定めており、両者が矛盾する。文末の不一致だけを見る strict: false が規範と一致する。"
+  ],
+  "rules": {
+    "preset-ja-technical-writing": {
+      "no-doubled-joshi": {
+        "min_interval": 1,
+        "strict": false,
+        "allow": []
+      },
+      "ja-no-mixed-period": {
+        "periodMark": "。",
+        "allowPeriodMarks": [
+          "}",
+          "．"
+        ],
+        "allowEmojiAtEnd": false,
+        "forceAppendPeriod": false
+      },
+      "ja-no-redundant-expression": true,
+      "no-mix-dearu-desumasu": {
+        "preferInHeader": "",
+        "preferInBody": "ですます",
+        "preferInList": "ですます",
+        "strict": false
+      },
+      "no-double-negative-ja": true,
+      "ja-no-abusage": true,
+      "no-dropping-the-ra": true,
+      "no-doubled-conjunctive-particle-ga": true,
+      "no-doubled-conjunction": true,
+      "sentence-length": {
+        "max": 120
+      },
+      "max-comma": {
+        "max": 4
+      }
+    },
+    "ja-hiragana-keishikimeishi": true,
+    "ja-hiraku": {
+      "keishikimeishi": false,
+      "fukushi": false,
+      "hojodoushi": false
+    },
+    "prefer-tari-tari": true,
+    "@textlint-ja/textlint-rule-no-insert-dropping-sa": true,
+    "no-mixed-zenkaku-and-hankaku-alphabet": true,
+    "ja-joyo-or-jinmeiyo-kanji": false,
+    "joyo-kanji": false,
+    "ja-kyoiku-kanji": false,
+    "ja-allowed-kanji": false,
+    "ukraine": true
+  }
+}
