@@ -24,6 +24,11 @@ run "決定性: バケッティングのゴールデンベクタ" \
 run "形式: ロードマップ項目の正規形" \
   python3 tools/check_roadmap_format.py
 
+# ページは roadmaps/ から生成する。生成器が読めない項目（未知の Status、日英で
+# 食い違う進捗の件数）は、デプロイではなくここで落とす。出力は捨てる。
+run "生成: ロードマップサイト" \
+  python3 tools/build_roadmap_site.py --out "$(mktemp -d)"
+
 run "整合性: 仕様ファイルの JSON" \
   python3 -c '
 import json, glob, sys

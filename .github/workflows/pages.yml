@@ -3,8 +3,10 @@ name: Deploy roadmap site to GitHub Pages
 on:
   push:
     branches: [main]
+    # ロードマップ項目そのものが出典なので、roadmaps/ の変更でも公開し直す
     paths:
-      - 'site/**'
+      - 'roadmaps/**'
+      - 'tools/build_roadmap_site.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -26,6 +28,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 最終更新日は roadmaps/ に最後に触れたコミットから取る。浅いクローンだと
+          # そのコミットが履歴に無く、日付が実際より新しく出てしまう。
+          fetch-depth: 0
+
+      # 公開するのは常にビルドし直したもの。コミット済みの site/ が古くても、
+      # 公開されるページは roadmaps/ と一致する。
+      - run: python3 tools/build_roadmap_site.py
 
       # 事前にリポジトリ設定 → Pages → Build and deployment → Source を
       # "GitHub Actions" にしておく必要がある。GITHUB_TOKEN では Pages サイトを

@@ -3,21 +3,30 @@
 モバイル（iOS / Android）を第一級市民として扱う、実験プラットフォームの技術選定と設計。
 フィーチャーフラグ配信・被験者割当・イベント収集・統計解析までを一気通貫で扱う。
 
-## ロードマップの一覧ページ
+## ロードマップのページ
 
-BK 項目の一覧: **https://0x0c.github.io/bakuchi/**
+**https://0x0c.github.io/bakuchi/**（日本語版は https://0x0c.github.io/bakuchi/ja/ ）
 
-[roadmaps/](roadmaps/) の各項目を、状態（可決 / 提案 / 提案（保留））ごとに束ねて採番順に並べる。
-タイトル・状態・トピック・関連は各項目の BK-METADATA が出典で、フェーズは項目の「作業」節が
-明記しているものだけを引く。日英どちらの版へも 1 クリックで飛べる。
-ソースは [site/](site/)、`main` への push で GitHub Actions が自動デプロイする
-（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。ビルドステップはなく、
-素の HTML / CSS / ES モジュールで完結する。ローカルで見るには任意の静的サーバを使う
-（`python3 -m http.server --directory site`）。ES モジュールを読むため `file://` では動かない。
+BK 項目を 1 つの画面にまとめる。カード・表・関連図の 3 つの見方を切り替えられ、状態と
+トピックで絞り込み、ID・題名・トピック・状態で検索できる。
 
-初回のみ、リポジトリ設定 → Pages → Build and deployment → Source を **GitHub Actions**
-にする必要がある。`GITHUB_TOKEN` では Pages サイトそのものを作成できないため、
-この一手だけはワークフローから自動化できない。
+**このページは [roadmaps/](roadmaps/) から生成する。** 題名、状態、トピック、関連、進捗の
+チェック箱は、すべて項目のファイルそのものから読む。手で書き写した値はひとつも持たないので、
+記録と表示がずれることはない。生成物は git 管理下に置かず（`site/` は `.gitignore`）、
+デプロイのたびに [tools/build_roadmap_site.py](tools/build_roadmap_site.py) が作り直す。
+
+```sh
+python3 tools/build_roadmap_site.py     # site/ に生成する
+python3 -m http.server --directory site # 見る
+```
+
+[tools/check.sh](tools/check.sh) は生成器を出力を捨てて走らせる。未知の Status や、
+日英で食い違う進捗の件数は、デプロイではなくこのゲートで落ちる。
+
+`main` への push で GitHub Actions が生成してデプロイする
+（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。初回のみ、リポジトリ設定 →
+Pages → Build and deployment → Source を **GitHub Actions** にする必要がある。
+`GITHUB_TOKEN` では Pages サイトそのものを作成できないため、この一手だけは人が行う。
 
 ## ドキュメント構成
 

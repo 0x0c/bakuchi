@@ -1,1 +1,4 @@
 node_modules/
+
+# ロードマップサイトはビルド生成物。tools/build_roadmap_site.py が roadmaps/ から作る。
+site/
