@@ -3,6 +3,15 @@
 モバイル（iOS / Android）を第一級市民として扱う、実験プラットフォームの技術選定と設計。
 フィーチャーフラグ配信・被験者割当・イベント収集・統計解析までを一気通貫で扱う。
 
+## ロードマップ（Web）
+
+段階的構築計画を可視化したページ: **https://0x0c.github.io/bakuchi/**
+
+[docs/09-roadmap.md](docs/09-roadmap.md) を出典に、フェーズのタイムライン（最短・最長の幅つき）、
+各フェーズの成果物と「意図的にやらないこと」、領域ごとのケイパビリティ導入マップを表示する。
+ソースは [site/](site/)、`main` への push で GitHub Actions が自動デプロイする
+（[.github/workflows/pages.yml](.github/workflows/pages.yml)）。
+
 ## ドキュメント構成
 
 | ドキュメント | 内容 |
