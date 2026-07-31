@@ -27,7 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # リポジトリ側で Pages が未設定でも、ソースを GitHub Actions にして有効化する
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
