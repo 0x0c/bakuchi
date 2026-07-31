@@ -129,9 +129,7 @@ project, used under the Apache License 2.0. See
 
 > Add unformed thoughts here, then promote them to a numbered item once the scope is clear.
 
-- **Bring `docs/` and `spec/` under the prose norm.** Those documents predate the norm and do not
-  conform yet (30 findings under `docs/`, 7 under `spec/`), so `tools/check.sh` lints only the
-  roadmap corpus and the top-level README. Converting them is mechanical but large; scope it before
-  numbering it.
-- **Bilingual `docs/`.** The design documents exist only in Japanese. Mirroring them the way the
-  roadmap items are mirrored would make the whole repository readable in either language.
+- **Bring the Japanese `docs/` under the prose norm.** The English documents were written under the
+  norm and `tools/check.sh` lints them, but their Japanese counterparts predate it and do not conform
+  yet, so the gate skips every `docs/**/*-ja.md`. Converting them is mechanical but large; scope it
+  before numbering it.

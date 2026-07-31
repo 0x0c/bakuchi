@@ -1,122 +1,136 @@
-# 08. 運用設計
+**English** · [日本語](08-operations-ja.md)
 
-## 1. SLO
+# 08. Operations
 
-| サービス | SLI | SLO | エラーバジェット |
+## 1. Service level objectives
+
+| Service | Indicator | Objective | Error budget |
 |---|---|---|---|
-| config-edge | 可用性（CDN 含む端末視点） | 99.99% | 月 4.3 分 |
-| config-edge | レイテンシ p99 | < 150ms | — |
-| コンフィグ反映 | 公開 → 全エッジ | < 60 秒（99%） | — |
-| event-gateway | 受理率（2xx） | 99.9% | 月 43 分 |
-| stats-service | 日次結果の更新完了 | 09:00 JST まで（99%） | — |
-| SDK | `start()` メインスレッド時間 | p99 < 10ms | — |
-| SDK | コンフィグ取得成功率 | > 98%（24 時間以内） | — |
+| config-edge | Availability as the device sees it, including the CDN | 99.99% | 4.3 minutes a month |
+| config-edge | p99 latency | < 150 ms | — |
+| Configuration propagation | From publication to every edge | < 60 seconds, at the 99th percentile | — |
+| event-gateway | Acceptance rate (2xx) | 99.9% | 43 minutes a month |
+| stats-service | Daily results refreshed | By 09:00 JST, at the 99th percentile | — |
+| SDK | Main-thread time in `start()` | p99 < 10 ms | — |
+| SDK | Configuration fetch success rate | > 98% within 24 hours | — |
 
-**エラーバジェットの使い方:** config-edge のバジェットを使い切ったら、実験の新規公開を止めて安定化を優先する。イベント基盤のバジェット超過は解析の遅延にとどまるので、新規公開は止めない。この非対称性を明文化しておく。
+**How the error budgets are used:** once config-edge exhausts its budget, publishing new experiments
+stops and stabilization takes priority. An overrun on the event pipeline only delays analysis, so it
+does not stop publication. Write that asymmetry down.
 
-## 2. リリース
+## 2. Releases
 
-### サーバ
+### Server
 
-| 対象 | 方式 |
+| Target | Method |
 |---|---|
-| config-edge / event-gateway | カナリア（1% → 10% → 50% → 100%、各段階 15 分）。SLI 自動監視で異常時ロールバック |
-| コントロールプレーン | ローリング。トラフィックが小さく、短時間の劣化が許容される |
-| stats-service | ブルーグリーン。**統計ロジック変更時は旧版と新版で同一実験を計算し差分を検証してから切替** |
-| config-builder | 変更時は必ず「生成物の差分」をステージングで検証（§4） |
+| config-edge, event-gateway | Canary at 1% → 10% → 50% → 100%, 15 minutes per step, rolling back automatically when the indicators go wrong |
+| Control plane | Rolling. Traffic is small and brief degradation is acceptable |
+| stats-service | Blue-green. **When the statistical logic changes, compute the same experiment on both versions and verify the difference before switching** |
+| config-builder | Every change is verified in staging against **a diff of the generated output** (§4) |
 
 ### SDK
 
-SDK のリリースはサーバと根本的に違う。**一度出したら戻せない**（C2）。
+Releasing an SDK differs fundamentally from releasing a server: **once it is out, it cannot be taken
+back** (constraint C2).
 
-1. 内部 dogfooding ビルドで 1 週間。
-2. 社内配布（TestFlight / 内部テストトラック）で 1 週間。
-3. 段階リリース（App Store の Phased Release / Play の Staged Rollout）1% → 100%、最短 5 日。
-4. 各段階で SDK 自身のヘルスメトリクス（初期化成功率、フェッチ成功率、クラッシュ率）を監視。
+1. One week on an internal dogfooding build.
+2. One week distributed internally, through TestFlight or an internal testing track.
+3. A staged release — App Store Phased Release or Play Staged Rollout — from 1% to 100%, over at least five days.
+4. At each step, watch the SDK's own health metrics: initialization success rate, fetch success rate, and crash rate.
 
-**SDK には必ずリモートキルスイッチを入れる。** コンフィグ内の `sdk_kill: {min_version: "1.4.0", action: "disable_all"}` で、SDK 自体を無効化して全実験をデフォルトに倒せるようにする。SDK にバグが見つかったとき、アプリの再リリースを待たずに被害を止められる唯一の手段。
+**Every SDK ships with a remote kill switch.** A `sdk_kill: {min_version: "1.4.0", action:
+"disable_all"}` entry in the configuration disables the SDK itself and drops every experiment to its
+default. When a bug turns up in the SDK, that switch is the only way to stop the damage without
+waiting for an app release.
 
-## 3. コンフィグの公開と巻き戻し
+## 3. Publishing and rolling back configuration
 
 ```
-公開:      draft → validate → 差分プレビュー → 承認 → build → S3 put → pointer 差替 → CDN purge
-巻き戻し:  pointer を前バージョンへ → CDN purge    （所要 数秒）
+Publish:  draft → validate → preview the diff → approve → build → put to S3 → swap the pointer → purge the CDN
+Roll back: point at the previous version → purge the CDN    (seconds)
 ```
 
-- コンフィグは不変オブジェクト。過去 90 日分の全バージョンを保持する。
-- ポインタ差し替えが唯一の可変操作。原子的で、部分適用された状態が存在しない。
-- **巻き戻しは承認不要**にする。止めるコストを最小化しないと、緊急時に躊躇が生まれる。
+- Configuration objects are immutable, and every version from the last 90 days is retained.
+- Swapping the pointer is the only mutable operation. It is atomic, and no partially applied state exists.
+- **A rollback needs no approval.** Unless stopping is made as cheap as possible, someone will hesitate in an emergency.
 
-## 4. 変更差分の事前提示
+## 4. Showing the diff before publication
 
-config-builder は公開前に以下を計算して Console に出す。これが**最大の事故防止装置**。
+Before publishing, config-builder computes the following and displays it in the console. **No other
+mechanism prevents as many accidents.**
 
-| 提示項目 | 意味 |
+| What is shown | Why it matters |
 |---|---|
-| 割当が変わるユーザの推定割合 | 「配分を増やしただけ」のつもりが全員シャッフルされる事故を防ぐ |
-| 影響を受ける実験の一覧 | レイヤーを共有する他の実験への波及 |
-| バンドルサイズの変化 | 上限超過の予兆 |
-| 新規に対象となるアプリバージョン | 古いバージョンに未知のフラグが配られないか |
+| The estimated share of users whose assignment changes | Prevents the accident where "we only raised the allocation" reshuffles everyone |
+| The list of experiments affected | Shows the knock-on effect on other experiments sharing the layer |
+| The change in bundle size | An early warning before the limit is hit |
+| App versions newly in scope | Confirms that an unknown flag is not being delivered to an old version |
 
-## 5. オンコールと Runbook
+## 5. On-call and the runbook
 
-| アラート | 一次対応 |
+| Alert | First response |
 |---|---|
-| config-edge の可用性低下 | CDN の `stale-if-error` が効いているか確認 → 効いていれば緊急度を下げる。オリジンを調査 |
-| コンフィグ取得成功率の低下（SDK 側メトリクス） | 特定 SDK バージョン／国／キャリアに偏っていないか。偏っていればコンフィグの内容起因を疑う |
-| ガードレール自動停止の発火 | 停止済みなので緊急度は低い。誤検知かを確認し、誤検知なら閾値を見直す |
-| SRM 検知 | 実験オーナーに通知。実験は自動では止めない（データが無駄になるだけで害はない）が、結果は非表示になる |
-| Kafka ラグ増大 | gateway のスプールに余裕があるか確認 → 解析の遅延として扱い、緊急度は中 |
-| A/A の偽陽性率逸脱 | **新規実験の公開を停止**。統計ロジックとパイプラインを調査 |
+| config-edge availability drops | Check whether the CDN's `stale-if-error` is holding. If it is, lower the urgency and investigate the origin |
+| Configuration fetch success rate drops, as seen from the SDK | Check whether it concentrates in a particular SDK version, country, or carrier. If it does, suspect the configuration's contents |
+| A guardrail halt fires | The experiment is already stopped, so urgency is low. Check whether it was a false positive and revisit the threshold if so |
+| A sample ratio mismatch is detected | Notify the experiment's owner. The experiment is not halted automatically, since running it on only wastes data rather than causing harm, but its results stay hidden |
+| Kafka lag grows | Check the headroom in the gateway's spool, then treat it as an analysis delay at medium urgency |
+| The A/A false-positive rate departs from its nominal level | **Stop publishing new experiments** and investigate the statistical logic and the pipeline |
 
-**緊急時の最終手段:** すべての実験を control に倒す `POST /v1/kill-all`。二人承認を必須にし、実行すると全実験が `halted` になり、次回起動から全ユーザがデフォルト挙動になる。
+**The last resort in an emergency:** `POST /v1/kill-all`, which drops every experiment to control. It
+requires two approvals; running it marks every experiment `halted`, and every user gets the default
+behavior from their next launch.
 
-## 6. フラグのライフサイクル管理（C2 への対処）
+## 6. Managing the flag lifecycle (the answer to C2)
 
-モバイルではフラグが消せない。放置すると数百のフラグが積み上がりコンフィグが肥大化する。
+Flags cannot be deleted on mobile. Left alone, hundreds accumulate and the configuration bloats.
 
-| 施策 | 内容 |
+| Measure | Contents |
 |---|---|
-| 有効期限の必須設定 | 作成時に `planned_end_at` を必須。超過したら週次でオーナーに通知 |
-| 棚卸しダッシュボード | `completed` 後 90 日以上残っているフラグを一覧表示 |
-| 削除可能判定 | 「そのフラグを参照する最古のアプリバージョンのアクティブ率が 1% 未満」になったら削除候補としてフラグを立てる |
-| コード側の検出 | SDK にフラグキーの静的解析ツールを同梱し、コンフィグに存在しないキーを参照しているコードを CI で警告 |
-| 逆方向 | コンフィグにあるがコードから参照されていないフラグも検出し、削除候補にする |
+| A mandatory expiry | `planned_end_at` is required at creation, and the owner is notified weekly once it passes |
+| An inventory dashboard | Lists flags still present more than 90 days after being `completed` |
+| A deletion-readiness signal | A flag is marked a deletion candidate once the oldest app version referencing it falls below 1% active share |
+| Detection in the code | The SDK bundles a static analyzer for flag keys, and continuous integration warns about code referencing a key absent from the configuration |
+| The reverse direction | Flags present in the configuration but referenced by no code are also detected and marked as deletion candidates |
 
-## 7. セキュリティ
+## 7. Security
 
-| 項目 | 対策 |
+| Item | Countermeasure |
 |---|---|
-| app_key の漏洩 | 前提とする（バイナリから抽出可能）。書き込み専用・レート制限・異常検知で守る |
-| コンフィグの改ざん | Ed25519 署名。アプリに 2 鍵埋め込み（ローテーション用） |
-| 未発表機能の露出 | **コンフィグはクライアントに丸ごと渡る = 公開情報。** 実験キーにコードネームを使わない運用ルール。リリース前機能はコンフィグ側でも別名にする |
-| 権限管理 | 実験の公開は RBAC で制限。本番の `publish` / `kill-all` は別ロール |
-| 監査 | 全変更を `experiment_audit` に記録。改変不可（append-only、別アカウントの S3 にレプリケート） |
-| Console への不正アクセス | SSO + MFA 必須 |
-| イベント投入の悪用 | 単一 IP / 単一 `install_id` からの異常投入を検知しブロック。統計を歪める攻撃を想定する |
+| Leaked app key | Assumed, since it can be extracted from the binary. Protected by write-only access, rate limiting, and anomaly detection |
+| Tampered configuration | An Ed25519 signature, with two keys embedded in the app for rotation |
+| Exposure of unannounced features | **The configuration reaches the client whole, which makes it public information.** The operating rule bans code names in experiment keys, and a pre-release feature gets a different name in the configuration too |
+| Access control | Publishing an experiment is restricted through role-based access control (RBAC), and `publish` and `kill-all` in production belong to a separate role |
+| Auditing | Every change is recorded in `experiment_audit`, which is append-only and replicated to an S3 bucket in a different account |
+| Unauthorized console access | Single sign-on with multi-factor authentication, both required |
+| Abuse of event ingestion | Anomalous submission from a single address or a single `install_id` is detected and blocked. Assume an attacker who wants to distort the statistics |
 
-## 8. コスト
+## 8. Cost
 
-MAU 1000 万・イベント 10 億件/日 の想定で、支配的なのはイベント基盤。
+At 10 million monthly active users and a billion events a day, the event pipeline dominates.
 
-| 項目 | 相対比率 | 削減手段 |
+| Item | Relative share | How to reduce it |
 |---|---|---|
-| ClickHouse ストレージ・計算 | 〜50% | `LowCardinality` 徹底、TTL 400 日、バケット事前集計で生データスキャンを避ける |
-| Kafka | 〜20% | 保持期間を 3 日に短縮（S3 が真実なので長期保持は不要） |
-| CDN 転送 | 〜15% | 304 の比率を上げる（ETag 運用）、コンフィグサイズの上限管理 |
-| 計算（K8s） | 〜10% | config-edge は CDN が吸収するので実は小さい |
-| S3 | 〜5% | Parquet + Iceberg、Glacier への階層化 |
+| ClickHouse storage and compute | ~50% | `LowCardinality` throughout, a 400-day time to live, and per-bucket pre-aggregation that avoids scanning raw data |
+| Kafka | ~20% | Shorten retention to three days, since S3 holds the truth and long retention buys nothing |
+| CDN transfer | ~15% | Raise the share of 304 responses through disciplined ETag use, and cap the configuration size |
+| Compute on Kubernetes | ~10% | Small in practice, because the CDN absorbs config-edge's load |
+| S3 | ~5% | Parquet with Iceberg, tiering into Glacier |
 
-**最も効く削減策はイベントの間引き。** `reason != ASSIGNED` の曝露を 1% サンプリングする（[04 章 §6](04-client-sdk.md#6-曝露exposureイベント)）、デバッグイベントを本番で送らない、といった設計時の判断が運用コストを一桁変える。
+**Thinning the events reduces cost more than anything else.** Sampling `reason != ASSIGNED`
+exposures at 1% ([chapter 04 §6](04-client-sdk.md#6-exposure-events)) and not sending debug events
+in production are design-time decisions, and they move the operating cost by a factor of ten.
 
-## 9. オンボーディングと組織
+## 9. Onboarding and the organization
 
-技術基盤だけ作っても実験文化は育たない。以下を基盤の一部として扱う。
+Building the technical platform alone does not grow a culture of experimentation. Treat the
+following as part of the platform.
 
-| 施策 | 内容 |
+| Measure | Contents |
 |---|---|
-| 実験テンプレート | 「新機能の効果検証」「パフォーマンス改善」など類型別に、必須メトリクスとガードレールが埋まった雛形を用意 |
-| 事前登録 | 実験開始前に仮説・主要指標・MDE・判断基準を記入必須。**後から指標を変えられないようにする**のが目的 |
-| 結果レビュー | 週次で完了実験をレビュー。統計の読み違いを組織的に潰す |
-| 実験の成功率を測る | 「実験のうち何 % が有意な改善だったか」を追跡（健全な組織で 10〜30%。極端に高いなら統計が壊れている可能性を疑う） |
-| ドキュメント | よくある誤り（peeking、セグメント漁り、SRM 無視）を明文化して Console からリンク |
+| Experiment templates | Per category — validating a new feature, improving performance — a template with the required metrics and guardrails already filled in |
+| Pre-registration | The hypothesis, the primary metric, the minimum detectable effect, and the decision criteria are required before an experiment starts. The purpose is **to make the metric unchangeable afterward** |
+| Result review | Completed experiments are reviewed weekly, which lets the organization catch misreadings of the statistics |
+| Measuring the experiment success rate | Track what share of experiments produced a significant improvement. A healthy organization sits at 10 to 30%, and an extreme figure suggests the statistics are broken |
+| Documentation | Write down the common mistakes — peeking, segment fishing, ignoring a sample ratio mismatch — and link to them from the console |

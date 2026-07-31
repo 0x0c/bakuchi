@@ -364,7 +364,7 @@ TEXT = {
         'foot_how': 'ロードマップの読み方',
         'foot_plan': '段階的構築計画',
         'how_href': f'{BLOB}/roadmaps/README-ja.md',
-        'plan_href': f'{BLOB}/docs/09-roadmap.md',
+        'plan_href': f'{BLOB}/docs/09-roadmap-ja.md',
         'statuses': {
             'implemented': '実装済み',
             'in-progress': '進行中',

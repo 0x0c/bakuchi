@@ -1,26 +1,31 @@
-# 05. サーバサイド各サービス設計
+**English** · [日本語](05-services-ja.md)
 
-## サービス一覧
+# 05. Server-side service design
 
-| サービス | 平面 | 言語 | 主ストア | Phase |
+## The services
+
+| Service | Plane | Language | Main store | Phase |
 |---|---|---|---|---|
-| [config-edge](#1-config-edge) | データ | Go | Redis / S3 | 1 |
-| [event-gateway](#2-event-gateway) | データ | Go | Kafka | 1 |
-| [experiment-service](#3-experiment-service) | 制御 | Go | PostgreSQL | 1 |
-| [metric-service](#4-metric-service) | 制御 | Go | PostgreSQL / Git | 1 |
-| [config-builder](#5-config-builder) | 制御 | Go | S3 / Redis | 1 |
-| [stats-service](#6-stats-service) | 解析 | Python | ClickHouse | 1 |
-| [console](#7-console) | 制御 | TypeScript | — | 1 |
-| [assignment-service](#8-assignment-service) | データ | Go | Redis + DynamoDB | 2 |
-| [guardrail-watcher](#9-guardrail-watcher) | 解析 | Go | ClickHouse | 2 |
+| [config-edge](#1-config-edge) | Data | Go | Redis / S3 | 1 |
+| [event-gateway](#2-event-gateway) | Data | Go | Kafka | 1 |
+| [experiment-service](#3-experiment-service) | Control | Go | PostgreSQL | 1 |
+| [metric-service](#4-metric-service) | Control | Go | PostgreSQL / Git | 1 |
+| [config-builder](#5-config-builder) | Control | Go | S3 / Redis | 1 |
+| [stats-service](#6-stats-service) | Analysis | Python | ClickHouse | 1 |
+| [console](#7-console) | Control | TypeScript | — | 1 |
+| [assignment-service](#8-assignment-service-phase-2) | Data | Go | Redis + DynamoDB | 2 |
+| [guardrail-watcher](#9-guardrail-watcher-phase-2) | Analysis | Go | ClickHouse | 2 |
 
-Phase 1 では experiment / metric / builder / console-BFF を**単一デプロイ単位**にまとめる（[02 章 §4](02-architecture.md#4-サービス分割の方針)）。以下は論理的な責務分割として読む。
+In Phase 1, experiment-service, metric-service, config-builder, and the console's backend for
+frontend ship as a **single deployment unit**
+([chapter 02 §4](02-architecture.md#4-how-the-services-are-split)). Read what follows as a split of
+responsibilities, not of processes.
 
 ---
 
 ## 1. config-edge
 
-**責務:** コンパイル済みコンフィグを配る。それだけ。
+**Responsibility:** serve the compiled configuration. Nothing else.
 
 ```
 GET /v1/config?app_id=&platform=&app_version=&sdk_version=
@@ -28,24 +33,28 @@ GET /v1/config?app_id=&platform=&app_version=&sdk_version=
 GET /healthz
 ```
 
-| 設計項目 | 内容 |
+| Design item | Contents |
 |---|---|
-| ステートレス | インスタンスは Redis と S3 しか触らない。どのインスタンスでも同じ応答 |
-| キー解決 | `(app_id, platform, sdk_version_major)` でオブジェクトを引き、`app_version` によるフィルタは**ビルド時に済ませておく**（実行時分岐を最小化） |
-| 応答 | Redis から取得 → ミス時 S3 → それも失敗なら**最後に成功した応答をプロセス内 LRU から返す** |
-| ETag | `config_version` のみで決まる（オブジェクトが不変なので安全） |
-| レート制限 | app_key 単位。ただし CDN で吸収されるのでオリジンへの到達は少ない |
-| CDN 設定 | `public, max-age=30, stale-while-revalidate=300, stale-if-error=86400` |
+| Stateless | An instance touches only Redis and S3, and every instance answers identically |
+| Key resolution | Look the object up by `(app_id, platform, sdk_version_major)`. Filtering by `app_version` **is done at build time**, which minimizes branching at request time |
+| Response | Read from Redis; on a miss, read S3; if that fails too, **return the last successful response from the in-process LRU cache** |
+| ETag | Determined by `config_version` alone, which is safe because objects are immutable |
+| Rate limiting | Per app key, though the CDN absorbs most traffic and little reaches the origin |
+| CDN settings | `public, max-age=30, stale-while-revalidate=300, stale-if-error=86400` |
 
-**重要な性質:** このサービスは**DB を持たない**。PostgreSQL が全損してもコンフィグ配信は継続する。可用性 99.99% はこの構造で達成する。
+**The property that matters: this service holds no database.** Configuration delivery continues even
+if PostgreSQL is entirely lost, and that structure is how the service reaches 99.99% availability.
 
-**キャパシティ概算:** MAU 1000 万、1 日 3 回フェッチ → 3000 万 req/day。CDN ヒット率 95%（大半が 304）→ オリジン 150 万 req/day ≈ 17 rps 平常時、ピーク 200 rps。Go の 2 インスタンスで足りる。実質的な負荷は CDN が持つ。
+**Capacity estimate:** 10 million monthly active users fetching three times a day gives 30 million
+requests per day. At a 95% CDN hit rate — most of the rest being 304 responses — the origin sees
+1.5 million requests per day, about 17 requests per second at rest and 200 at peak. Two Go instances
+suffice. The CDN carries the real load.
 
 ---
 
 ## 2. event-gateway
 
-**責務:** イベントを受理して Kafka に流す。検証はするが加工はしない。
+**Responsibility:** accept events and put them on Kafka. It validates but does not transform.
 
 ```
 POST /v1/events
@@ -55,25 +64,27 @@ Authorization: Bearer <app_key>
   → 202 Accepted { "accepted": 20, "rejected": 0 }
 ```
 
-| 設計項目 | 内容 |
+| Design item | Contents |
 |---|---|
-| 受理優先 | 検証に通ったものだけ Kafka へ。**部分的な失敗でも 202 を返す**（クライアントに再送させると重複が増えるだけ） |
-| 検証 | JSON Schema（[spec/event.schema.json](../spec/event.schema.json)）+ サイズ上限（1 イベント 32KB / バッチ 1MB） |
-| 付加情報 | `server_ts`、`ingest_id`、IP からの国コード。**IP 本体は保存せず即破棄** |
-| 時刻補正 | バッチの `sent_at` と `server_ts` の差から skew を推定し `corrected_ts` を付与（[06 章](06-data-pipeline.md)） |
-| バックプレッシャ | Kafka が詰まったらローカルディスクにスプール。それも溢れたら 429 + `Retry-After` |
-| 認証 | app_key（クライアント埋め込み。秘密ではない）。**なりすまし対策は認証ではなく異常検知で行う** — 単一 IP からの大量投入、存在しない `install_id` の急増を監視 |
-| パーティション | `unit_id` のハッシュでパーティショニング。同一ユーザのイベント順序を保つ |
+| Acceptance first | Only events that pass validation go to Kafka, and **a partial failure still returns 202**, because making the client retransmit only multiplies duplicates |
+| Validation | A JSON Schema ([spec/event.schema.json](../spec/event.schema.json)) plus size limits: 32 KB per event, 1 MB per batch |
+| Enrichment | `server_ts`, `ingest_id`, and the country code resolved from the IP address. **The address itself is discarded immediately and never stored** |
+| Clock correction | Estimate the skew from the difference between the batch's `sent_at` and `server_ts`, and attach `corrected_ts` ([chapter 06](06-data-pipeline.md)) |
+| Backpressure | When Kafka backs up, spool to local disk; when that overflows too, return 429 with `Retry-After` |
+| Authentication | The app key, embedded in the client and not a secret. **Impersonation is handled by anomaly detection rather than authentication** — the gateway watches for bulk submission from a single address and for a spike in identifiers that do not exist |
+| Partitioning | Partition by a hash of `unit_id`, which preserves event order per user |
 
-**クライアントの app_key は秘密にできない**（APK/IPA から取れる）。これを前提に、書き込み専用・レート制限・異常検知で守る設計にする。認証で守ろうとすると必ず破綻する。
+**A client's app key cannot be kept secret**, since it can be extracted from an APK or IPA. The
+design starts from that fact and protects the endpoint through write-only access, rate limiting, and
+anomaly detection. Trying to protect it through authentication always fails.
 
 ---
 
 ## 3. experiment-service
 
-**責務:** 実験の定義とライフサイクルの唯一の真実。
+**Responsibility:** the single source of truth for experiment definitions and their lifecycle.
 
-### データモデル
+### The data model
 
 ```sql
 CREATE TABLE layers (
@@ -86,12 +97,12 @@ CREATE TABLE experiments (
   id              UUID PRIMARY KEY,
   key             TEXT UNIQUE NOT NULL,       -- 'checkout_button_v2'
   layer_key       TEXT REFERENCES layers(key),
-  layer_range     INT4RANGE,                  -- レイヤー内で占有するバケット範囲
-  seed            INT  NOT NULL DEFAULT 1,    -- 再ランダム化用
+  layer_range     INT4RANGE,                  -- the bucket range occupied within the layer
+  seed            INT  NOT NULL DEFAULT 1,    -- for re-randomization
   randomization_unit TEXT NOT NULL,           -- install_id | user_id | account_id | session_id
   sticky          BOOLEAN NOT NULL DEFAULT FALSE,
   state           TEXT NOT NULL,              -- draft|review|running|paused|halted|completed
-  targeting       JSONB NOT NULL,             -- 条件木
+  targeting       JSONB NOT NULL,             -- the condition tree
   variants        JSONB NOT NULL,             -- [{key, weight_bp, params}]
   primary_metric  TEXT NOT NULL,
   guardrails      TEXT[] NOT NULL,
@@ -99,7 +110,7 @@ CREATE TABLE experiments (
   started_at      TIMESTAMPTZ,
   planned_end_at  TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  -- ★ 同一レイヤー内でバケット範囲が重ならないことを DB が保証する
+  -- ★ the database guarantees that bucket ranges never overlap within a layer
   EXCLUDE USING gist (layer_key WITH =, layer_range WITH &&)
       WHERE (state IN ('running','paused'))
 );
@@ -114,7 +125,7 @@ CREATE TABLE experiment_audit (
   at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Transactional Outbox（公開イベントの原子性）
+-- Transactional outbox (atomicity for the publish event)
 CREATE TABLE outbox (
   id         BIGSERIAL PRIMARY KEY,
   topic      TEXT NOT NULL,
@@ -123,38 +134,40 @@ CREATE TABLE outbox (
 );
 ```
 
-`EXCLUDE USING gist` によるレイヤー排他が設計上の要。**アプリケーションロジックではなく DB 制約で相互排他を保証する。** 同時公開のレースで実験が重複配分される事故を構造的に防ぐ。
+Layer exclusion through `EXCLUDE USING gist` is the keystone of the design. **Mutual exclusion is
+guaranteed by a database constraint rather than by application logic**, which structurally prevents
+the accident where a race between two simultaneous publications double-allocates a range of buckets.
 
-### ライフサイクルと不変条件
+### The lifecycle and its invariants
 
 ```mermaid
 stateDiagram-v2
     [*] --> draft
     draft --> review: submit
     review --> draft: request_changes
-    review --> running: publish（承認必須）
+    review --> running: publish (approval required)
     running --> paused: pause
     paused --> running: resume
-    running --> halted: halt（ガードレール自動 or 手動）
+    running --> halted: halt (guardrail or manual)
     running --> completed: complete
     halted --> completed
     completed --> [*]
 ```
 
-公開時のバリデーション（すべてハードゲート）:
-- バリアントの `weight_bp` の合計が `layer_range` の幅と一致する。
-- `primary_metric` が metric-service に存在し、有効。
-- ガードレールが最低 1 つ（クラッシュ率は自動付与）。
-- `running` 以降は `seed` / `randomization_unit` / バリアント構成を**変更不可**（変更したければ新しい実験を作る）。トラフィック配分の**増加**のみ許可、減少は既存被験者の扱いが曖昧になるので警告付き。
-- アプリバージョンターゲティングが指定されていること（C1 の強制）。
+Validation at publication, every check a hard gate:
+- The variants' `weight_bp` values sum to the width of `layer_range`.
+- `primary_metric` exists in metric-service and is enabled.
+- At least one guardrail is present; crash rate is attached automatically.
+- Once an experiment is `running`, its `seed`, its `randomization_unit`, and its variant composition **cannot change**. Changing any of them means creating a new experiment. Only an **increase** in traffic allocation is permitted; a decrease carries a warning, because the treatment of existing subjects turns ambiguous.
+- App-version targeting is specified, which enforces constraint C1.
 
-### API（gRPC + REST）
+### The API (gRPC and REST)
 
 ```
-POST   /v1/experiments                    作成
-PATCH  /v1/experiments/{id}               更新（draft のみ大幅変更可）
-POST   /v1/experiments/{id}:publish       公開
-POST   /v1/experiments/{id}:halt          緊急停止
+POST   /v1/experiments                    create
+PATCH  /v1/experiments/{id}               update (large changes only while in draft)
+POST   /v1/experiments/{id}:publish       publish
+POST   /v1/experiments/{id}:halt          emergency stop
 GET    /v1/experiments?state=running
 GET    /v1/experiments/{id}/audit
 ```
@@ -163,15 +176,16 @@ GET    /v1/experiments/{id}/audit
 
 ## 4. metric-service
 
-**責務:** メトリクス定義の管理。**定義を Git 管理し PR レビューを通す**のが要点。
+**Responsibility:** managing metric definitions. The point of the service is that **definitions live
+in Git and go through pull-request review**.
 
 ```yaml
 # metrics/purchase_conversion.yaml
 key: purchase_conversion
-name: 購入完了率
+name: Purchase conversion rate
 type: proportion            # proportion | mean | ratio | count | quantile
 owner: growth-team
-description: 曝露後 7 日以内に purchase_completed が 1 件以上ある割合
+description: The share of exposed users with at least one purchase_completed within 7 days
 unit: user
 numerator:
   event: purchase_completed
@@ -191,112 +205,121 @@ event: app_started
 value_field: duration_ms
 direction: lower_is_better
 guardrail: true
-alert_threshold_pct: 5      # 5% 悪化で自動停止
+alert_threshold_pct: 5      # halt automatically on a 5% regression
 ```
 
-| 判断 | 理由 |
+| Decision | Reason |
 |---|---|
-| メトリクス定義を YAML + Git | UI で自由に定義させると、実験ごとに微妙に違う「購入率」が乱立し結果が比較不能になる。レビューを挟むことで定義の一貫性を保つ |
-| SQL を直接書かせない | ClickHouse のスキーマ変更でメトリクス定義が全部壊れる。抽象定義から SQL を生成する |
-| `minimum_detectable_effect` を必須 | 実験開始時にサンプルサイズを計算し、「何日回せば結論が出るか」を提示するため |
+| Metric definitions in YAML under Git | Letting people define metrics freely in the user interface produces a crowd of subtly different "purchase rates", one per experiment, and results stop being comparable. Review keeps the definitions consistent |
+| Callers do not write SQL | A ClickHouse schema change would break every metric definition at once. The service generates SQL from the abstract definition instead |
+| `minimum_detectable_effect` is mandatory | It lets the platform compute the sample size when an experiment starts and answer "how many days until this concludes?" |
 
 ---
 
 ## 5. config-builder
 
-**責務:** 実験定義（正規化された関係データ）を、SDK が高速に評価できる非正規化コンフィグにコンパイルする。
+**Responsibility:** compile experiment definitions, held as normalized relational data, into a
+denormalized configuration the SDK can evaluate quickly.
 
-### 分割戦略
+### How the output is split
 
-すべての実験を 1 ファイルに入れると、SDK が使わない情報まで配る。以下で分割する:
+Putting every experiment in one file ships information the SDK never uses. The output splits like
+this:
 
 ```
 config/{version}/{app_id}/{platform}/{sdk_major}.json
 ```
 
-- **プラットフォーム別** — iOS 専用実験を Android に配らない。
-- **SDK メジャーバージョン別** — 新しいターゲティングオペレータを古い SDK に配らない（前方互換の担保）。
-- **アプリバージョン別には分けない** — 組合せが爆発する。代わりにコンフィグ内に `min_version` / `max_version` を持たせ SDK 側で判定する。
+- **By platform** — an iOS-only experiment does not go to Android.
+- **By SDK major version** — a new targeting operator does not go to an old SDK, which is how forward compatibility is upheld.
+- **Not by app version** — the combinations would explode. The configuration carries `min_version` and `max_version` instead, and the SDK decides.
 
-### コンパイル時にやること
+### What compilation does
 
-1. `running` / `paused` の全実験を取得。
-2. ターゲティング条件木を、SDK が評価できるプリミティブに正規化（セグメント参照 → 具体的な条件へ展開）。
-3. レイヤーごとにバケット範囲を確定。
-4. `sdk_major` が理解できないオペレータを含む実験は**そのバンドルから除外**（古い SDK には配らない）。
-5. サイズチェック（gzip 後 100KB 超で警告、200KB でビルド失敗）。
-6. **自己検証**: 生成したコンフィグに対しゴールデンベクタと回帰テストを走らせ、前版から意図しない割当変化がないか差分検査。
-7. S3 に不変オブジェクトとして put → `latest.json` ポインタを差し替え → CDN purge。
+1. Fetch every `running` and `paused` experiment.
+2. Normalize the targeting condition tree into primitives the SDK can evaluate, expanding segment references into concrete conditions.
+3. Fix the bucket range for each layer.
+4. **Exclude from a bundle** any experiment using an operator that `sdk_major` cannot understand, so it never reaches an old SDK.
+5. Check the size: warn above 100 KB after gzip, fail the build at 200 KB.
+6. **Self-check:** run the golden vectors and the regression tests against the generated configuration, and diff it against the previous version for unintended changes in assignment.
+7. Put the immutable object to S3, swap the `latest.json` pointer, and purge the CDN.
 
-ステップ 6 が重要。「トラフィック配分を 10%→20% に増やしただけのつもりが、既存の 10% の被験者もシャッフルされていた」という事故は実際に起きる。**公開前に、前版と比べて何 % のユーザの割当が変わるかを算出して UI に提示する。**
+Step 6 carries the weight. The accident it prevents is real: "we only meant to raise the allocation
+from 10% to 20%, but the existing 10% got reshuffled too." **Before publication, compute what
+share of users change assignment against the previous version, and show it in the user
+interface.**
 
-### ロールバック
+### Rollback
 
 ```
 POST /v1/config:rollback  { "to_version": 8430 }
-→ latest.json を前版に戻して purge。数秒で完了。
+→ point latest.json back at the previous version and purge. Done in seconds.
 ```
 
-不変オブジェクトなので過去の全バージョンがそのまま残っている。「壊れた実験を直す」のではなく「動いていた版に戻す」が常に可能。
+Because the objects are immutable, every past version is still there. The recovery move is never
+"fix the broken experiment" but always "go back to the version that worked".
 
 ---
 
 ## 6. stats-service
 
-**責務:** 実験結果の統計判定。Python + FastAPI。
+**Responsibility:** deciding experiment results statistically, in Python with FastAPI.
 
 ```
 GET  /v1/experiments/{key}/results?as_of=2026-07-30&breakdown=app_version
-POST /v1/experiments/{key}/power        サンプルサイズ・所要日数の計算
-GET  /v1/experiments/{key}/srm          SRM 診断
+POST /v1/experiments/{key}/power        sample size and required duration
+GET  /v1/experiments/{key}/srm          sample ratio mismatch diagnostics
 ```
 
-計算内容は [07 章](07-statistics.md)。実装上の要点:
+[Chapter 07](07-statistics.md) covers what the service computes. Three points matter in the
+implementation:
 
-- ClickHouse で**バケット単位に事前集計**（10,000 バケット × バリアント × 日）してから統計処理する。生イベントを Python に持ってこない。
-- 結果はキャッシュする（`(experiment, as_of, breakdown)` で 1 時間）。
-- 計算は Celery / Dagster のジョブとして非同期実行し、API はキャッシュを返すだけにする。
+- ClickHouse **pre-aggregates per bucket** (10,000 buckets × variant × day) before any statistics run. Raw events never reach Python.
+- Results are cached for an hour, keyed by `(experiment, as_of, breakdown)`.
+- The computation runs asynchronously as a Celery or Dagster job, and the API only serves the cache.
 
 ---
 
 ## 7. console
 
-Next.js（App Router）+ BFF。
+Next.js with the App Router, plus a backend for frontend.
 
-| 画面 | 内容 |
+| Screen | Contents |
 |---|---|
-| 実験一覧 | 状態・オーナー・経過日数・SRM 警告バッジ |
-| 実験詳細 | 設定、ターゲティングの可視化、**「この設定で何日で結論が出るか」の事前計算** |
-| 結果 | 指標ごとの効果量・信頼区間・逐次検定の判定。SRM 検知時は**結果を隠す**（[07 章](07-statistics.md)） |
-| 公開差分 | 公開前に「割当が変わるユーザの割合」を表示 |
-| フラグ棚卸し | 90 日以上 `completed` のまま残っているフラグを一覧（C2 対策） |
-| 監査ログ | 誰がいつ何を変えたか |
+| Experiment list | State, owner, days elapsed, and a sample-ratio-mismatch warning badge |
+| Experiment detail | The settings, a visualization of the targeting, and **an up-front estimate of how many days this configuration needs to conclude** |
+| Results | Effect size, confidence interval, and the sequential-test decision per metric. On a sample ratio mismatch the console **hides the results** ([chapter 07](07-statistics.md)) |
+| Publication diff | The share of users whose assignment changes, shown before publishing |
+| Flag inventory | Flags left `completed` for more than 90 days, which addresses constraint C2 |
+| Audit log | Who changed what, and when |
 
 ---
 
-## 8. assignment-service（Phase 2）
+## 8. assignment-service (Phase 2)
 
-**責務:** サーバ側実験の評価と、クロスデバイスのスティッキー割当。
+**Responsibility:** evaluating server-side experiments, and sticky assignment across a user's
+devices.
 
 ```
-POST /v1/assign        { unit, attributes, experiment_keys[] } → 割当結果
+POST /v1/assign        { unit, attributes, experiment_keys[] } → the assignments
 GET  /v1/assignments/{unit_id}
 ```
 
-- 評価ロジックは config-builder / SDK と**同一の Go パッケージ**を使う（`internal/eval`）。ここが分岐すると決定性が崩れる。
-- スティッキーストア: Redis（TTL 90 日）+ DynamoDB（永続）。Read-through。
-- バックエンドサービスからは Go の埋め込みライブラリ（`abkit-go`）としても使えるようにし、ネットワークホップを避けられる経路を用意する。
+- The evaluation logic uses **the same Go package** as config-builder and the SDK (`internal/eval`). Determinism collapses if those diverge.
+- The sticky store is Redis with a 90-day time to live, backed by DynamoDB for persistence, read through the cache.
+- Backend services can also use it as an embedded Go library (`abkit-go`), which gives them a path that avoids the network hop.
 
 ---
 
-## 9. guardrail-watcher（Phase 2）
+## 9. guardrail-watcher (Phase 2)
 
-15 分ごとにガードレール指標を評価し、逐次検定で有意な悪化を検知したら `experiment-service` の `:halt` を叩く。
+Every 15 minutes the watcher evaluates the guardrail metrics and, on detecting a significant
+regression under a sequential test, calls `:halt` on experiment-service.
 
-| 設計項目 | 内容 |
+| Design item | Contents |
 |---|---|
-| 対象指標 | クラッシュ率、ANR 率、起動時間 p95、主要 CVR、エラー率 |
-| 検定 | 常時監視するので**必ず逐次検定**（固定水平の t 検定を 15 分ごとに回すと偽陽性だらけになる） |
-| 自動停止の条件 | 逐次検定で有意 **かつ** 効果量が実質的閾値を超える（統計的有意だけでは止めない） |
-| 誤停止対策 | 停止は「control へ戻す」だけで復旧可能。**止めるコストは低く、止めないコストは高い**ので閾値は攻めに設定してよい |
-| 通知 | Slack にメトリクス・信頼区間・該当バリアントを添えて通知 |
+| Metrics watched | Crash rate, application-not-responding rate, p95 startup time, key conversion rates, and error rate |
+| The test | **Always a sequential test**, because the watcher looks continuously. Running a fixed-horizon t-test every 15 minutes would produce false positives constantly |
+| Condition for an automatic halt | Significant under the sequential test **and** past a practical effect-size threshold. Statistical significance alone does not halt an experiment |
+| Guarding against a wrong halt | A halt only returns users to control, so recovery is easy. **Halting is cheap and not halting is expensive**, which justifies an aggressive threshold |
+| Notification | Slack, with the metric, the confidence interval, and the variant involved |

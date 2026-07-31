@@ -51,17 +51,23 @@ sys.exit(bad)
 # 対象ファイルを明示して 2 回呼ぶ。
 TEXTLINT_DIR=.agent-workflows/document-writing/textlint
 
-# ゲートの対象は、この文章規範のもとで書かれた文書にかぎる。docs/ と spec/ は規範を
-# 導入する前に書いたもので、まだ適合していない（docs/ に 30 件、spec/ に 7 件の指摘）。
-# 適合していない文書を対象に含めるとゲートが恒常的に赤くなり、ゲートとして機能しなくなる。
-# 移行は roadmaps/README.md の Unsorted ideas に項目として積んである。
+# ゲートの対象は、この文章規範のもとで書かれた文書にかぎる。docs/ の英語版は規範のもとで
+# 書いたので対象に含める。日本語版は規範を導入する前に書いたもので、まだ適合していない
+# （30 件の指摘）。適合していない文書を対象に含めるとゲートが恒常的に赤くなり、ゲートとして
+# 機能しなくなるため、日本語版は対象外にしてある。移行は roadmaps/README.md の Unsorted ideas
+# に項目として積んである。
+#
+# spec/ は規範の適用範囲そのものの外にある。要求を述べる規範仕様であって議論を組み立てる
+# 散文ではないため（.agent-workflows/document-writing/workflow.md の Scope を参照）。
 ja_files () {
   find roadmaps -name '*-ja.md'
-  echo README.md
+  echo README-ja.md
 }
 en_files () {
   find roadmaps -name 'BK-*.md' ! -name '*-ja.md'
+  find docs -name '0*.md' ! -name '*-ja.md'
   echo roadmaps/README.md
+  echo README.md
 }
 
 printf '\n\033[1m==> 文章: textlint\033[0m\n'

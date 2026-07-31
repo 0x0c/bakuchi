@@ -16,7 +16,7 @@
 ## はじめに
 
 曝露イベントとメトリクスイベントは、統計レイヤーが問い合わせるストアに着地します。
-[`docs/03-tech-selection.md`](../../docs/03-tech-selection.md) の技術選定は ClickHouse を挙げて
+[`docs/03-tech-selection-ja.md`](../../docs/03-tech-selection-ja.md) の技術選定は ClickHouse を挙げて
 いますが、明示的な但し書きを添えています。**BigQuery や Snowflake を既に運用しているなら、そちらを
 使うべき**という但し書きです。本項目は、この但し書きを、担当者と期日のある判断へ変えるために存在
 します。誰かが最初のクエリを書いた瞬間に静かに決着してしまう注記のままにはしません。
@@ -64,7 +64,7 @@ ClickHouse の総費用はマネージドウェアハウスを上回ります。
 
 パイプラインは、この判断が 1 つのレイヤーに閉じるように設計してあります。生イベントの単一の真実は
 オブジェクトストレージ側に置き、テーブルフォーマット上の Parquet として保持します。ウェアハウスが
-持つのは再構築可能な派生データです。[`docs/06-data-pipeline.md`](../../docs/06-data-pipeline.md) に
+持つのは再構築可能な派生データです。[`docs/06-data-pipeline-ja.md`](../../docs/06-data-pipeline-ja.md) に
 記したバケット単位の事前集計はどちらのストアでも表現でき、統計レイヤーが生イベントを一切スキャン
 しないで済む仕組みになっています。
 
@@ -88,13 +88,13 @@ ClickHouse の総費用はマネージドウェアハウスを上回ります。
 - [ ] 1 日あたりイベント数と、各選択肢でのストレージ費用およびクエリ費用を見積もる。
 - [ ] ストアを運用する担当者を書面で確認する。
 - [ ] 判断と理由を本項目に記録し、
-      [`docs/03-tech-selection.md`](../../docs/03-tech-selection.md) を更新する。
+      [`docs/03-tech-selection-ja.md`](../../docs/03-tech-selection-ja.md) を更新する。
 
 ## 参考
 
-- [`docs/03-tech-selection.md`](../../docs/03-tech-selection.md)：データストアの選定と但し書き。
-- [`docs/06-data-pipeline.md`](../../docs/06-data-pipeline.md)：スキーマと、どちらのストアでも表現
+- [`docs/03-tech-selection-ja.md`](../../docs/03-tech-selection-ja.md)：データストアの選定と但し書き。
+- [`docs/06-data-pipeline-ja.md`](../../docs/06-data-pipeline-ja.md)：スキーマと、どちらのストアでも表現
   できるバケット単位の事前集計。
-- [`docs/08-operations.md`](../../docs/08-operations.md)：このストアが支配的となる費用の内訳。
+- [`docs/08-operations-ja.md`](../../docs/08-operations-ja.md)：このストアが支配的となる費用の内訳。
 - [BK-0001](../BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md)：同じ段階で判断する項目。
   ウェアハウスの棚卸しは両方の入力になります。

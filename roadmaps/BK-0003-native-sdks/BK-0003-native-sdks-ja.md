@@ -75,7 +75,7 @@ SHA-256 はプラットフォーム標準の暗号フレームワークから追
 
 以下の統制がそろわないかぎり、ネイティブ 2 実装は単に間違える機会が 2 つあるだけになります。
 
-1. [`spec/bucketing.md`](../../spec/bucketing.md) を**規範**とします。各実装が従う先は、互いの
+1. [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md) を**規範**とします。各実装が従う先は、互いの
    コードではなく規範仕様です。
 2. 全実装が [`spec/golden-vectors.json`](../../spec/golden-vectors.json) を CI で検証し、
    **不一致であればマージをブロック**します。
@@ -107,8 +107,8 @@ SHA-256 はプラットフォーム標準の暗号フレームワークから追
 
 ## 参考
 
-- [`docs/04-client-sdk.md`](../../docs/04-client-sdk.md)：SDK の設計全体。
-- [`spec/bucketing.md`](../../spec/bucketing.md)：両実装が従う規範アルゴリズム。
+- [`docs/04-client-sdk-ja.md`](../../docs/04-client-sdk-ja.md)：SDK の設計全体。
+- [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md)：両実装が従う規範アルゴリズム。
 - [`tools/verify_vectors.py`](../../tools/verify_vectors.py)：適合性チェッカ。
 - [BK-0004](../BK-0004-bucketing-hash/BK-0004-bucketing-hash-ja.md)：ここでの無依存制約が後押しする
   ハッシュ選択。

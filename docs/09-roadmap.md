@@ -1,91 +1,100 @@
-# 09. 段階的構築計画
+**English** · [日本語](09-roadmap-ja.md)
 
-一気に全部作らない。各フェーズは**それ単体で価値を出して終われる**ように切る。
+# 09. The phased build plan
 
-## Phase 0: 検証（2 週間）
+Do not build everything at once. Each phase is cut so that it **delivers value on its own and can end
+there**.
 
-作る前に確かめる。
+## Phase 0: validation (2 weeks)
 
-- [ ] [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md) の判断基準に照らし、本当に自前構築すべきか結論を出す
-- [ ] 既存の DWH（BigQuery / Snowflake）の有無を確認 → あれば ClickHouse を採用しない
-- [ ] 想定イベント量とコストの試算
-- [ ] iOS / Android チームに SDK のサイズ・起動時間予算を提示して合意を取る
-- [ ] バケッティングアルゴリズムを [spec/](../spec/) の通りに実装し、ゴールデンベクタで 4 言語一致を確認
+Check before building.
 
-**Phase 0 の成果物が「作らない」という結論でも、それは成功。**
+- [ ] Against the criteria in [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy.md), conclude whether to build this at all
+- [ ] Check whether a data warehouse already exists (BigQuery or Snowflake); if one does, do not adopt ClickHouse
+- [ ] Estimate the expected event volume and its cost
+- [ ] Present the SDK's size and startup-time budgets to the iOS and Android teams and get their agreement
+- [ ] Implement the bucketing algorithm exactly as [spec/](../spec/) states, and confirm that four languages agree against the golden vectors
+
+**Phase 0 succeeds even when its conclusion is "do not build".**
 
 ---
 
-## Phase 1: フィーチャーフラグ配信（6〜8 週間）
+## Phase 1: feature-flag delivery (6 to 8 weeks)
 
-**目標: 実験ではなく、安全なフラグ配信を先に確立する。** 統計より先に、配信の信頼性を作る。
+**The goal is safe flag delivery, not experimentation.** Reliable delivery comes before any
+statistics.
 
-| 領域 | 成果物 |
+| Area | Deliverable |
 |---|---|
-| SDK | iOS / Android。同期評価、ローカルキャッシュ、バンドルデフォルト、曝露イベント、デバッグメニュー |
-| 配信 | config-edge + S3 + CDN。不変オブジェクト + ポインタ差し替え |
-| 制御 | experiment-service / metric-service / config-builder / console を**単一デプロイ単位**で |
-| イベント | event-gateway → Kafka → **Go の単純コンシューマ** → ClickHouse（Flink はまだ入れない） |
-| 解析 | **既存の BI / DWH で手動集計**。専用の stats-service はまだ作らない |
+| SDK | iOS and Android: synchronous evaluation, a local cache, bundled defaults, exposure events, and a debug menu |
+| Delivery | config-edge with S3 and a CDN: immutable objects plus a pointer swap |
+| Control | experiment-service, metric-service, config-builder, and the console as a **single deployment unit** |
+| Events | event-gateway → Kafka → **a simple Go consumer** → ClickHouse. Flink stays out for now |
+| Analysis | **Manual aggregation in the existing business-intelligence tools or data warehouse.** No dedicated stats-service yet |
 
-**この段階でできること:** 段階的ロールアウト、キルスイッチ、A/B の割当と曝露記録。結果の判定は手動 SQL。
+**What this stage can do:** staged rollout, kill switches, and A/B assignment with exposure logging.
+Deciding the result is manual SQL.
 
-**この段階で意図的にやらないこと:** 統計エンジン、レイヤー排他（1 レイヤーのみ）、スティッキー割当、サーバ側実験。
+**What this stage deliberately does not do:** the statistics engine, layer exclusion (there is a
+single layer), sticky assignment, and server-side experiments.
 
-**完了条件:** 本番で 1 つの実験を最後まで回し、手動で結論を出せた。
+**Done when:** one experiment has run to completion in production and a conclusion was drawn by
+hand.
 
 ---
 
-## Phase 2: 実験プラットフォーム化（8〜10 週間）
+## Phase 2: becoming an experimentation platform (8 to 10 weeks)
 
-**目標: 統計判定を自動化し、PM が自力で実験を回せるようにする。**
+**The goal is automating the statistical decision so that a product manager can run an experiment
+unaided.**
 
-| 領域 | 成果物 |
+| Area | Deliverable |
 |---|---|
-| 統計 | stats-service。Welch t 検定、比率、デルタ法、信頼区間 |
-| 診断 | **SRM 検定を結果表示のハードゲートに**、事前 A/A チェック |
-| 設計支援 | サンプルサイズ計算、所要日数の事前提示 |
-| 排他 | レイヤーによる相互排他（DB の `EXCLUDE` 制約） |
-| 安全装置 | guardrail-watcher による自動停止。リテンションを全実験の必須ガードレールに |
-| 品質 | 常時 A/A 実験 2 本。データ品質モニタリング（[06 章 §8](06-data-pipeline.md#8-データ品質モニタリング)） |
-| サーバ側 | assignment-service + `abkit-go` 埋め込みライブラリ |
+| Statistics | stats-service: Welch's t-test, proportions, the delta method, and confidence intervals |
+| Diagnostics | **The sample-ratio-mismatch test as a hard gate on displaying results**, plus a pre-period A/A check |
+| Design support | Sample-size calculation and an up-front estimate of the duration |
+| Exclusion | Mutual exclusion through layers, via the database's `EXCLUDE` constraint |
+| Safety | Automatic halts from guardrail-watcher, and retention as a mandatory guardrail on every experiment |
+| Quality | Two A/A experiments running continuously, and data-quality monitoring ([chapter 06 §8](06-data-pipeline.md#8-data-quality-monitoring)) |
+| Server side | assignment-service and the `abkit-go` embedded library |
 
-**完了条件:** PM がエンジニアの手を借りずに実験を作成・開始・判定できる。A/A の偽陽性率が名目水準に収まっている。
+**Done when:** a product manager can create, start, and decide an experiment without an engineer,
+and the A/A false-positive rate sits at its nominal level.
 
 ---
 
-## Phase 3: 精度と規模（継続）
+## Phase 3: precision and scale (ongoing)
 
-**目標: 実験のスループットと検出力を上げる。**
+**The goal is raising the throughput and the statistical power of experimentation.**
 
-| 領域 | 成果物 |
+| Area | Deliverable |
 |---|---|
-| 分散削減 | CUPED。既存ユーザセグメントに適用 |
-| 逐次検定 | mSPRT による always-valid CI。ダッシュボードの既定表示に |
-| 多重比較 | Benjamini-Hochberg、Dunnett |
-| 遅延データ | Flink 導入。ウォーターマークベースの再計算 |
-| 分位点 | t-digest によるレイテンシメトリクス |
-| 高度な解析 | 新奇性効果検出、異質処理効果（HTE）、クラスタランダム化 |
-| 運用 | フラグ棚卸しの自動化、静的解析による未使用フラグ検出 |
-| ホールドバック | 全実験からの恒常的除外群による累積効果測定 |
+| Variance reduction | CUPED, applied to the existing-user segment |
+| Sequential testing | Always-valid confidence intervals through mSPRT, as the dashboard default |
+| Multiple comparisons | Benjamini-Hochberg and Dunnett |
+| Late data | Adopting Flink, with watermark-based recomputation |
+| Quantiles | Latency metrics through t-digest |
+| Advanced analysis | Novelty-effect detection, heterogeneous treatment effects, and cluster randomization |
+| Operations | Automating the flag inventory, and detecting unused flags through static analysis |
+| Holdback | Measuring the effect that accumulates across experiments, through a group permanently excluded from every one |
 
 ---
 
-## Phase 4 以降の候補（要否は Phase 3 の実績で判断）
+## Candidates for Phase 4 and beyond, decided on Phase 3's record
 
-- 多腕バンディット（探索と活用の自動最適化）— **実験文化が成熟する前に入れると、なぜ勝ったか分からない意思決定が増える**ため優先度は低い
-- パーソナライゼーション（セグメント別に最適バリアントを自動選択）
-- 因果推論の拡張（観察データからの効果推定、切替回帰デザイン）
-- 実験結果のメタ分析（過去実験の効果量分布から事前分布を構築）
+- Multi-armed bandits, automating the trade-off between exploration and exploitation. Priority stays low, because **introducing them before the culture of experimentation matures multiplies decisions nobody can explain the reason for**
+- Personalization, selecting the best variant automatically per segment
+- Extensions into causal inference: effect estimation from observational data, and regression discontinuity designs
+- Meta-analysis of past results, building priors from the distribution of past effect sizes
 
 ---
 
-## リスクと前提
+## Risks and assumptions
 
-| リスク | 対処 |
+| Risk | Response |
 |---|---|
-| SDK が iOS / Android チームに採用されない | Phase 0 でサイズ・起動時間の予算を合意。SDK 開発に両チームのメンバーを入れる |
-| 統計を誰も理解せず結果が誤読される | Phase 2 で SRM ハードゲートと「有意差なし ≠ 差がない」の明示を実装に組み込む。ドキュメントに頼らない |
-| Phase 1 で作り込みすぎる | 「統計エンジンを作らない」を明示的な制約として守る |
-| ClickHouse の運用負荷 | 既存 DWH があるならそれを使う。Phase 0 で判断する |
-| 実験が回らず基盤が塩漬けになる | Phase 1 完了条件を「実験を 1 本完走」にしてある。技術的完成ではなく利用を完了条件にする |
+| The iOS or Android team does not adopt the SDK | Agree the size and startup-time budgets in Phase 0, and put members of both teams on SDK development |
+| Nobody understands the statistics and results get misread | Build the sample-ratio-mismatch hard gate and the explicit "not significant ≠ no difference" wording into the implementation in Phase 2, rather than relying on documentation |
+| Phase 1 gets overbuilt | Hold "no statistics engine" as an explicit constraint |
+| ClickHouse costs too much to operate | Use the existing data warehouse if one exists. Decide in Phase 0 |
+| No experiments run and the platform goes stale | Phase 1's completion criterion is one experiment run end to end. Completion means use, not technical readiness |

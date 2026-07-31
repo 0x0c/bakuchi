@@ -16,7 +16,7 @@
 ## はじめに
 
 コンフィグバンドルは CDN を通じて HTTPS で配信されます。
-[`docs/04-client-sdk.md`](../../docs/04-client-sdk.md) のクライアント SDK 設計では、署名検証を
+[`docs/04-client-sdk-ja.md`](../../docs/04-client-sdk-ja.md) のクライアント SDK 設計では、署名検証を
 「任意だが推奨」と記しています。これは判断ではありません。本項目は、署名検証を必須にすることを
 提案します。ビルドサービスが全バンドルに Ed25519 で署名し、SDK がアプリに埋め込んだ公開鍵で検証
 します。
@@ -94,11 +94,11 @@ SDK は検証失敗をヘルスメトリクスとして報告します。多数�
 
 ## 参考
 
-- [`docs/04-client-sdk.md`](../../docs/04-client-sdk.md)：コンフィグ取得と検証。現在は署名検証を
+- [`docs/04-client-sdk-ja.md`](../../docs/04-client-sdk-ja.md)：コンフィグ取得と検証。現在は署名検証を
   任意と記しています。
 - [`spec/config-bundle.schema.json`](../../spec/config-bundle.schema.json)：本項目が埋める
   `signature` フィールド。
-- [`docs/08-operations.md`](../../docs/08-operations.md)：改ざんを脅威として挙げているセキュリティ
+- [`docs/08-operations-ja.md`](../../docs/08-operations-ja.md)：改ざんを脅威として挙げているセキュリティ
   方針。
 - [BK-0002](../BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md)：そもそもバンドルがアプリの
   挙動を決める理由。

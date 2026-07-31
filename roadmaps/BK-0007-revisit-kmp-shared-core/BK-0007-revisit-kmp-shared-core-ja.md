@@ -89,5 +89,5 @@ Python の実装は別のまま残るためです。モバイルのコアを共�
 ## 参考
 
 - [BK-0003](../BK-0003-native-sdks/BK-0003-native-sdks-ja.md)：本項目が再開する判断と、その論拠。
-- [`docs/04-client-sdk.md`](../../docs/04-client-sdk.md)：SDK の設計と、サイズおよび起動時間の予算。
-- [`spec/bucketing.md`](../../spec/bucketing.md)：現在も、どちらの結論でも一致を保つ規範仕様。
+- [`docs/04-client-sdk-ja.md`](../../docs/04-client-sdk-ja.md)：SDK の設計と、サイズおよび起動時間の予算。
+- [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md)：現在も、どちらの結論でも一致を保つ規範仕様。

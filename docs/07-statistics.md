@@ -1,67 +1,83 @@
-# 07. 統計設計
+**English** · [日本語](07-statistics-ja.md)
 
-フィーチャーフラグ配信基盤と A/B テストプラットフォームを分けるのはこの章の内容。ここが雑だと「実験はできるが結論が間違っている」基盤になる。
+# 07. Statistical design
 
-本章の数値例は `NormalDist` ベースの計算で検証済み（両側 α=0.05、検出力 80%）。
+What separates a feature-flag delivery system from an A/B testing platform is the content of this
+chapter. Treat it carelessly and the result is a platform that can run experiments but reaches wrong
+conclusions.
 
-## 1. 診断が先、推定は後
+The numeric examples here were verified with `NormalDist`-based calculations, at a two-sided α of
+0.05 and 80% power.
 
-**結果画面を出す前に、必ず診断を通す。** 診断に落ちた実験は結果を表示しない（数値を出すと必ず読まれてしまうため、グレーアウトではなく非表示にする）。
+## 1. Diagnostics first, estimation second
+
+**Every result passes diagnostics before it is shown.** An experiment that fails a diagnostic gets
+no result screen at all — not a grayed-out one, because a number on screen will be read no matter
+how it is styled.
 
 ```mermaid
 flowchart TD
-    A["曝露データ"] --> B{"SRM 検定<br/>p ≥ 0.001?"}
-    B -->|No| X["❌ 結果非表示<br/>割当が壊れている"]
-    B -->|Yes| C{"事前期間 A/A<br/>有意差なし?"}
-    C -->|No| Y["⚠️ 警告表示<br/>集団に元々差がある"]
-    C -->|Yes| D{"最小サンプル<br/>到達?"}
-    D -->|No| Z["⏳ 収集中<br/>残り日数を表示"]
-    D -->|Yes| E["✅ 結果表示"]
+    A["exposure data"] --> B{"SRM test<br/>p ≥ 0.001?"}
+    B -->|No| X["❌ results hidden<br/>assignment is broken"]
+    B -->|Yes| C{"pre-period A/A<br/>no significant difference?"}
+    C -->|No| Y["⚠️ warning shown<br/>the groups differed to begin with"]
+    C -->|Yes| D{"minimum sample<br/>reached?"}
+    D -->|No| Z["⏳ collecting<br/>days remaining shown"]
+    D -->|Yes| E["✅ results shown"]
 ```
 
-## 2. SRM（Sample Ratio Mismatch）
+## 2. Sample ratio mismatch
 
-50/50 で割り当てたはずのバリアント間で曝露ユーザ数が想定比率からずれる現象。**A/B テストで最も頻繁かつ最も致命的な障害**で、これが出ている実験の結果は例外なく信用できない。
+A sample ratio mismatch (SRM) is the phenomenon where the number of exposed users per variant
+departs from the intended split — from 50/50, for instance. It is **the most frequent and the most
+damaging failure in A/B testing**, and the result of an experiment showing one is without exception
+untrustworthy.
 
-### 検定
+### The test
 
-自由度 1 のカイ二乗検定（多バリアントなら k-1）。**閾値は p < 0.001**（0.05 ではない — 多数の実験を常時監視するため）。
+A chi-squared test with one degree of freedom, or k−1 for k variants. **The threshold is p < 0.001**,
+not 0.05, because many experiments are monitored continuously.
 
 ```
 χ² = Σ (observed_i - expected_i)² / expected_i
 ```
 
-### 検出力の実際
+### The power in practice
 
-| 曝露数 | 実際の比率のずれ | χ² | p 値 | 判定 |
+| Exposures | Actual departure from the ratio | χ² | p | Verdict |
 |---|---|---|---|---|
 | 50,000 vs 49,500 | 0.50% | 2.51 | 0.11 | ok |
-| 50,000 vs 49,000 | 1.01% | 10.10 | 1.5×10⁻³ | ok（境界） |
+| 50,000 vs 49,000 | 1.01% | 10.10 | 1.5×10⁻³ | ok (borderline) |
 | 100,000 vs 98,800 | 0.60% | 7.24 | 7.1×10⁻³ | ok |
 | 500,000 vs 497,000 | 0.30% | 9.03 | 2.7×10⁻³ | ok |
 
-サンプルが増えるほど微小なずれも検出できる。大規模実験では 0.3% のずれでも警告水準に近づく。
+The larger the sample, the smaller the departure the test detects. In a large experiment even a 0.3%
+departure approaches the warning level.
 
-### SRM の主な原因（モバイル固有のものを含む）
+### The main causes, including the mobile-specific ones
 
-| 原因 | 見分け方 |
+| Cause | How to spot it |
 |---|---|
-| バリアント間でクラッシュ率が違う | treatment のクラッシュ後に曝露が送れず欠損。クラッシュ率をブレイクダウン |
-| 曝露記録の位置がバリアント間で非対称 | control 側で `variant()` を呼び忘れている。コードレビューで潰す |
-| バリアント間でイベント送信量が違い、キュー溢れの頻度が変わる | `queue_dropped` メトリクスをバリアント別に見る |
-| 実験途中でのトラフィック配分変更 | 監査ログと突き合わせる。変更日以降で分割して再検定 |
-| ボット・自動テスト | 特定の `install_id` パターンの集中 |
-| 遅延到着の非対称性 | `is_late` 率をバリアント別に確認。D+7 で再検定すると解消することがある |
+| Crash rates differ between variants | An exposure cannot be sent after a crash in treatment, so it goes missing. Break the crash rate down by variant |
+| Exposure is recorded asymmetrically between variants | `variant()` is not being called on the control path. Catch it in code review |
+| Event volume differs between variants, changing how often the queue overflows | Look at the `queue_dropped` metric per variant |
+| Traffic allocation changed mid-experiment | Cross-check the audit log, then split at the change date and retest |
+| Bots or automated tests | A concentration of a particular `install_id` pattern |
+| Asymmetric late arrivals | Check the `is_late` rate per variant. Retesting at D+7 sometimes clears it |
 
-**SRM が出たら実験は捨てる。** 原因を直して再実行するのが唯一の正しい対応で、「多分大丈夫だろう」で読んではいけない。
+**An experiment with a sample ratio mismatch gets thrown away.** Fixing the cause and rerunning is
+the only correct response, and reading the numbers anyway on the hope that they are probably fine is
+not an option.
 
-## 3. サンプルサイズと所要期間
+## 3. Sample size and duration
 
-実験を**開始する前に**必要サンプル数と所要日数を提示する。これがないと「なんとなく 1 週間回して有意じゃないからやめる」という検出力不足の実験が量産される。
+Present the required sample size and the expected duration **before the experiment starts**. Without
+that, the organization mass-produces underpowered experiments that run for about a week and get
+abandoned for lack of significance.
 
-比率メトリクスの必要サンプル数（両側 α=0.05、検出力 80%、1 群あたり）:
+The sample size required per group for a proportion metric, at a two-sided α of 0.05 and 80% power:
 
-| ベースライン CVR | 相対 MDE | 必要 n/群 | 合計 |
+| Baseline conversion rate | Relative minimum detectable effect | Required n per group | Total |
 |---|---|---|---|
 | 5% | 2% | 752,703 | 1,505,406 |
 | 5% | 5% | 122,124 | 244,248 |
@@ -69,153 +85,180 @@ flowchart TD
 | 30% | 2% | 92,089 | 184,178 |
 | 2% | 5% | 315,206 | 630,412 |
 
-**この表が示す現実:** DAU 100 万のアプリでも、CVR 5% に対して 2% の相対改善を検出するには全トラフィックの 20% 割当で 7.5 日、100% 割当でも 1.5 日分の**新規曝露**が要る。小さな改善を測るのは想像より遥かに高くつく。
+**What the table says about reality:** even an app with a million daily active users needs 7.5 days
+of **new exposures** at a 20% traffic allocation to detect a 2% relative improvement on a 5%
+conversion rate, and 1.5 days at a 100% allocation. Measuring a small improvement costs far more
+than expected.
 
-Console では実験作成時に「この設定なら結論まで N 日」を表示し、90 日を超える場合は警告を出す。
+The console shows "N days to a conclusion with these settings" when an experiment is created, and
+warns when N exceeds 90.
 
-### モバイル特有の補正
+### Corrections specific to mobile
 
-- **曝露は新規ユーザの流入で増えるのではなく、既存ユーザのアプリ起動で増える。** DAU ではなく「対象画面への到達 UU」で見積もる。
-- **最低 1 週間は回す。** 曜日効果があるため、7 日未満の実験は週内変動と交絡する。サンプル数が早期に足りても 7 日は待つ。
-- **アプリバージョンの普及を待つ。** 実験対象バージョンの普及率が 50% を超えてから開始しないと、初期の被験者が「早期アップデータ」に偏る（C3）。
+- **Exposures accumulate from existing users opening the app, not from new users arriving.** Estimate from unique users reaching the screen in question, not from daily active users.
+- **Run for at least a week.** Day-of-week effects mean an experiment shorter than seven days is confounded with within-week variation. Wait the seven days even when the sample arrives early.
+- **Wait for the app version to spread.** Starting before the targeted version passes 50% adoption biases the early subjects toward users who update early (constraint C3).
 
-## 4. 効果推定
+## 4. Effect estimation
 
-### 基本
+### The basics
 
-| メトリクス種別 | 手法 |
+| Metric type | Method |
 |---|---|
-| 平均値（`mean`） | Welch の t 検定（等分散を仮定しない）。バケット集計の一次・二次モーメントから計算 |
-| 比率（`proportion`） | 二項比率の差。大標本なので正規近似で十分 |
-| 比（`ratio`、例: クリック数/表示数） | **デルタ法**。分子と分母が同一ユーザ内で相関するため単純な比の分散では過小評価になる |
-| カウント（`count`） | 対数変換 or ポアソン回帰。ゼロ過剰なら hurdle モデル |
-| 分位点（`quantile`） | t-digest + ブートストラップ。バケット単位のリサンプリング |
+| Mean (`mean`) | Welch's t-test, which does not assume equal variances, computed from the first and second moments of the bucket aggregates |
+| Proportion (`proportion`) | The difference of two binomial proportions. The samples are large, so a normal approximation suffices |
+| Ratio (`ratio`, such as clicks per impression) | **The delta method.** The numerator and denominator correlate within a user, so the naive variance of a ratio underestimates |
+| Count (`count`) | A log transform or Poisson regression, or a hurdle model when zeros are excessive |
+| Quantile (`quantile`) | t-digest plus the bootstrap, resampling per bucket |
 
-### 外れ値処理
+### Handling outliers
 
-課金額のようなロングテールメトリクスは、1 人の高額ユーザが結果を左右する。
+A long-tailed metric such as revenue lets a single high-spending user swing the result.
 
-- **winsorize（99.9 パーセンタイルでクリップ）を既定**にする。切り捨てではなくクリップ。
-- クリップ前後の両方を表示し、乖離が大きい場合は警告する（乖離自体が「効果が一部ユーザに集中している」という重要な情報）。
-- 閾値は実験開始前に固定する。結果を見てから決めてはいけない。
+- **Winsorizing at the 99.9th percentile is the default** — clipping the values rather than dropping the users.
+- Show the result both before and after clipping, and warn when the two diverge widely, because the divergence itself carries the important information that the effect is concentrated in a few users.
+- Fix the threshold before the experiment starts. It must never be chosen after seeing the results.
 
-### クラスタ頑健分散
+### Cluster-robust variance
 
-ランダム化単位が `account_id`（家族・法人）で、メトリクスがユーザ単位の場合、観測は独立でない。クラスタ内相関を無視すると分散が過小になり**偽陽性が激増する**。
+When the randomization unit is `account_id` — a family or a company — and the metric is per user,
+the observations are not independent. Ignoring the intra-cluster correlation understates the
+variance and **produces a flood of false positives**.
 
-バケットをクラスタとみなしたバケット単位のブートストラップで対処する。これがバケット事前集計（[06 章 §7](06-data-pipeline.md#7-バケット単位の事前集計)）を採用した理由のひとつ。
+The answer is a bucket-level bootstrap that treats a bucket as a cluster. That method is one of the
+reasons this design pre-aggregates per bucket
+([chapter 06 §7](06-data-pipeline.md#7-per-bucket-pre-aggregation)).
 
-## 5. CUPED による分散削減
+## 5. Variance reduction with CUPED
 
-実験開始前の期間における同一メトリクスを共変量として使い、分散を削減する。
+Controlled experiments using pre-experiment data (CUPED) uses the same metric measured before the
+experiment as a covariate, and reduces the variance.
 
 ```
 Y_adjusted = Y - θ(X_pre - E[X_pre])
-   ただし θ = Cov(Y, X_pre) / Var(X_pre)
+   where θ = Cov(Y, X_pre) / Var(X_pre)
 
 Var(Y_adjusted) = Var(Y) · (1 - ρ²)
 ```
 
-| 事前期間との相関 ρ | 分散 | 必要サンプル | 実効的な検出力効率 |
+| Correlation ρ with the pre-period | Variance | Required sample | Effective gain in power |
 |---|---|---|---|
-| 0.3 | 91% | 91% | 1.10 倍 |
-| 0.5 | 75% | 75% | 1.33 倍 |
-| 0.7 | 51% | 51% | 1.96 倍 |
-| 0.8 | 36% | 36% | 2.78 倍 |
+| 0.3 | 91% | 91% | 1.10× |
+| 0.5 | 75% | 75% | 1.33× |
+| 0.7 | 51% | 51% | 1.96× |
+| 0.8 | 36% | 36% | 2.78× |
 
-**実務上のインパクトが最も大きい施策。** 課金額・利用時間のような継続性の高いメトリクスは ρ が 0.6〜0.8 になることが多く、実験期間を半分にできる。
+**No other technique here has as much practical impact.** A persistent metric such as revenue or
+time spent often reaches a ρ of 0.6 to 0.8, which halves the experiment duration.
 
-### モバイルでの注意
+### Cautions on mobile
 
-- 事前期間のデータは**曝露時点より前**でなければならない。曝露が実験開始日にばらつくため、ユーザごとに「曝露日の 14 日前〜曝露日」を事前期間とする。
-- 新規インストールユーザには事前期間が存在しない。**新規と既存でセグメントを分け、既存にのみ CUPED を適用する**（新規は θ=0 として扱う）。
-- θ は control 群のみから推定する（treatment から推定すると効果推定にバイアスが入る）。
+- The pre-period data must come from **before the moment of exposure**. Exposure dates vary across users, so the pre-period is defined per user as the 14 days before that user's exposure.
+- A newly installed user has no pre-period at all. **Segment new users from existing ones and apply CUPED only to the existing ones**, treating new users as θ = 0.
+- Estimate θ from the control group alone. Estimating it from treatment biases the effect estimate.
 
-## 6. 逐次検定（peeking 問題）
+## 6. Sequential testing and the peeking problem
 
-固定水平の t 検定を毎日眺めると、偽陽性率は名目 5% を大きく超える（10 回覗けば約 30%）。実験基盤はダッシュボードで常時見られるので、**この問題は避けられない。手法で解く。**
+Looking at a fixed-horizon t-test every day pushes the false-positive rate far above its nominal 5%
+— about 30% after ten looks. An experimentation platform puts a dashboard in front of people all
+day, so **the problem cannot be avoided by policy and must be solved by method.**
 
-| 手法 | 評価 |
+| Method | Assessment |
 |---|---|
-| **mSPRT（always-valid confidence interval）** | ✅ 採用。いつ見ても妥当な信頼区間。停止規則が不要で運用が単純 |
-| Group Sequential（O'Brien-Fleming） | 事前に覗くタイミングを決める必要があり、モバイルの実験運用と相性が悪い |
-| ベイズ（事後確率） | 直感的だが事前分布の選択が恣意的になりやすく、組織内での合意形成が難しい |
-| 固定水平のみ | 実験終了まで結果を見せない運用は現実には守られない |
+| **mSPRT, giving an always-valid confidence interval** | ✅ Selected. The interval is valid whenever it is read, no stopping rule is required, and operating it stays simple |
+| Group sequential (O'Brien-Fleming) | It requires deciding the look times in advance, which fits mobile experiment operations poorly |
+| Bayesian posterior probabilities | Intuitive, but the choice of prior turns arbitrary, which makes agreement within an organization hard |
+| Fixed horizon only | A policy of hiding results until the experiment ends is never actually followed |
 
-**設計:**
-- ダッシュボードには**常に always-valid CI** を表示する。
-- 事前に宣言したサンプルサイズに到達した時点の固定水平検定の結果も併記する（こちらのほうが検出力が高い）。
-- **ガードレールは必ず逐次検定**。15 分ごとに評価するので固定水平では機能しない。
+**The design:**
+- The dashboard **always shows the always-valid confidence interval**.
+- Alongside it, the console shows the fixed-horizon result as of the pre-declared sample size, which has more power.
+- **Guardrails always use a sequential test.** They are evaluated every 15 minutes, where a fixed horizon does not work at all.
 
-always-valid CI は固定水平より広い（＝保守的）。これは「いつでも見られる」ことの対価で、検出力を約 20〜30% 犠牲にする。それでも peeking による偽陽性より遥かにましである。
+An always-valid confidence interval is wider, and therefore more conservative, than a fixed-horizon
+one. That width is the price of being readable at any moment, and it costs roughly 20 to 30% of the
+power — still far better than the false positives peeking produces.
 
-## 7. 多重比較
+## 7. Multiple comparisons
 
-1 実験で 20 個のメトリクスを見れば、α=0.05 のもとで平均 1 個は偶然有意になる。
+Looking at 20 metrics in one experiment yields, on average, one spuriously significant result at an
+α of 0.05.
 
-| 対象 | 補正 |
+| Target | Correction |
 |---|---|
-| **主要指標（1 つ）** | 補正しない。事前に 1 つだけ宣言させる |
-| 二次指標 | Benjamini-Hochberg（FDR 制御）。「発見のためのスクリーニング」なので FWER 制御は厳しすぎる |
-| ガードレール | 補正しない。**見逃しのコストのほうが高い**ので検出力を優先 |
-| バリアント数 k ≥ 3 | Dunnett 法（対照群との多重比較） |
-| セグメント別ブレイクダウン | 補正必須。かつ「探索的分析」と明示ラベル。ここから結論を出さない運用ルール |
+| **The primary metric (exactly one)** | None. Exactly one is declared in advance |
+| Secondary metrics | Benjamini-Hochberg, controlling the false discovery rate. These are a screen for discoveries, so controlling the family-wise error rate would be too strict |
+| Guardrails | None. **Missing a regression costs more**, so power takes priority |
+| Three or more variants | Dunnett's test, comparing each variant against control |
+| Per-segment breakdowns | Correction is mandatory, and the label "exploratory" is applied. The operating rule is that no conclusion comes from here |
 
-**主要指標を 1 つに強制する**のが最も効く。実験作成時に必須項目にし、後から変更したら監査ログに残す。
+**Forcing a single primary metric does more than any correction.** The console makes it a required
+field at creation, and any later change lands in the audit log.
 
-## 8. モバイル特有の解析上の論点
+## 8. Analysis questions specific to mobile
 
-### 8.1 新奇性効果（novelty effect）
+### 8.1 Novelty effects
 
-UI 変更は最初の数日だけ効果が出て、その後消えることがある。
+A user-interface change can show an effect for the first few days and then lose it.
 
-**検出:** 曝露からの経過日数別に効果量を推定し、時系列トレンドを見る。単調減衰していれば新奇性を疑う。最低 2 週間回して後半 1 週間の効果を見る。
+**Detection:** estimate the effect size by days since exposure and look at the trend. A monotonic
+decay suggests novelty. Run for at least two weeks and read the effect over the second week.
 
-### 8.2 初回起動バイアス
+### 8.2 First-launch bias
 
-`config_source = bundled` のユーザ（C6）は初回起動ユーザに偏る。バンドル版コンフィグは最新でない可能性があるため、割当が本来と異なる場合がある。
+Users with `config_source = bundled` (constraint C6) skew toward first launches. The bundled
+configuration may not be the latest, so their assignment can differ from what it would otherwise be.
 
-**対処:** `config_source` を必ずブレイクダウン軸として提供し、`bundled` の割合が高い実験には警告を出す。
+**The answer:** always offer `config_source` as a breakdown dimension, and warn on an experiment
+where the `bundled` share runs high.
 
-### 8.3 アプリバージョン混在（C3）
+### 8.3 Mixed app versions (C3)
 
-実験期間中に新バージョンが配信されると、更新したユーザとしていないユーザで集団が分かれる。
+When a new version ships during an experiment, the population divides into users who updated and
+users who did not.
 
-**対処:** `app_version` を共変量に含める。あるいは実験対象を単一バージョンに固定する（推奨だが、実験期間が短くなる）。バージョン別ブレイクダウンを標準表示にする。
+**The answer:** include `app_version` as a covariate, or fix the experiment to a single version,
+which is preferable but shortens the window. Make the per-version breakdown a standard display.
 
-### 8.4 生存者バイアス
+### 8.4 Survivorship bias
 
-アンインストールしたユーザはイベントを送らない。treatment のほうがアンインストール率が高い場合、残ったユーザだけを見ると treatment が良く見える。
+A user who uninstalls sends no events. When treatment has the higher uninstall rate, looking only at
+the users who remain makes treatment look better than it is.
 
-**対処:** **リテンション（D1/D7/D30）を全実験の必須ガードレール**にする。「主要指標は改善したがリテンションが落ちた」を必ず検出できる状態にする。
+**The answer:** make **retention at day 1, day 7, and day 30 a mandatory guardrail on every
+experiment**, so that "the primary metric improved but retention fell" is always detectable.
 
-### 8.5 ネットワーク効果・干渉
+### 8.5 Network effects and interference
 
-ソーシャル機能の実験では、treatment ユーザの行動が control ユーザに影響し SUTVA が破れる。
+In an experiment on a social feature, the behavior of treatment users affects control users, which
+breaks the stable unit treatment value assumption.
 
-**対処:** クラスタランダム化（地域・ソーシャルグラフのコミュニティ単位）。ただし検出力が大幅に落ちるため、干渉が実際に想定される実験に限定する。
+**The answer:** cluster randomization, by region or by community in the social graph. It costs a
+great deal of power, so restrict it to experiments where interference is genuinely expected.
 
-## 9. A/A テストによる継続的検証
+## 9. Continuous verification through A/A tests
 
-**本番で常時 2 本の A/A 実験を走らせる。** 全ユーザを対象に 50/50 で分割し、実質的な差がないことを確認し続ける。
+**Run two A/A experiments continuously in production.** Split every user 50/50 and keep confirming
+that no material difference appears.
 
-| 監視項目 | 期待値 | 逸脱時の意味 |
+| What is monitored | Expected | What a departure means |
 |---|---|---|
-| 全メトリクスの p 値分布 | 一様分布 | 分散推定が誤っている |
-| 偽陽性率（α=0.05） | 5% | 有意に超えるなら手法かパイプラインが壊れている |
-| SRM 検定 | 常に通過 | 割当ロジックの不具合 |
-| always-valid CI の被覆率 | ≥ 95% | 逐次検定の実装ミス |
+| The distribution of p-values across all metrics | Uniform | The variance estimate is wrong |
+| The false-positive rate at α = 0.05 | 5% | Significantly above it means the method or the pipeline is broken |
+| The sample-ratio-mismatch test | Always passes | A defect in the assignment logic |
+| The coverage of the always-valid confidence interval | ≥ 95% | A mistake in the sequential-test implementation |
 
-A/A の偽陽性率が名目水準から外れたときは、**新規実験の開始を止める**運用にする。壊れた基盤で出した結論は、結論がないより有害。
+When the A/A false-positive rate departs from its nominal level, the operating rule is to **stop
+starting new experiments**. A conclusion drawn on a broken platform is worse than no conclusion.
 
-## 10. 結果の提示
+## 10. Presenting results
 
-数値をそのまま出すと必ず誤読される。提示の仕方まで設計に含める。
+Numbers presented raw are always misread, so presentation belongs in the design.
 
-| 原則 | 実装 |
+| Principle | Implementation |
 |---|---|
-| 点推定より信頼区間 | 「+2.3%」ではなく「+2.3% [−0.4%, +5.0%]」を主表示にする |
-| 「有意差なし」≠「差がない」 | 検出力不足の場合は「この実験では ±X% より小さい差は検出できません」と明記 |
-| 実質的有意性 | 統計的有意と、事前宣言した MDE を超えたかを**別々に**表示 |
-| 意思決定の記録 | 結果に対する判断（採用／不採用／再実験）とその理由を必須入力にして保存。後から実験の質を振り返れるようにする |
-| 探索的分析の明示 | セグメント別の結果には「探索的」ラベルを機械的に付与し、確証的結論に使えないことを示す |
+| Confidence intervals over point estimates | The headline reads "+2.3% [−0.4%, +5.0%]", not "+2.3%" |
+| "Not significant" is not "no difference" | When power is short, state it: "this experiment cannot detect a difference smaller than ±X%" |
+| Practical significance | Show statistical significance and passing the pre-declared minimum detectable effect **separately** |
+| A record of the decision | Require the judgment on the result — adopt, reject, or rerun — and the reasoning behind it, and store both, so the quality of past experiments can be reviewed later |
+| Exploratory analysis, marked as such | Attach the "exploratory" label mechanically to per-segment results, showing that they cannot support a confirmatory conclusion |

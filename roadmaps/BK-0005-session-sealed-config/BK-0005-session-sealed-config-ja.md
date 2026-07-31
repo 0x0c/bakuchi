@@ -96,10 +96,10 @@ QA でも不便になります。コンフィグを変えても再起動しな�
 
 ## 参考
 
-- [`docs/04-client-sdk.md`](../../docs/04-client-sdk.md)：この判断が生む起動シーケンスとスレッド
+- [`docs/04-client-sdk-ja.md`](../../docs/04-client-sdk-ja.md)：この判断が生む起動シーケンスとスレッド
   モデル。
-- [`docs/01-requirements.md`](../../docs/01-requirements.md)：制約 C6、初回起動時のコンフィグ欠如。
-- [`docs/07-statistics.md`](../../docs/07-statistics.md)：曝露が分母である理由と、一意でなくなった
+- [`docs/01-requirements-ja.md`](../../docs/01-requirements-ja.md)：制約 C6、初回起動時のコンフィグ欠如。
+- [`docs/07-statistics-ja.md`](../../docs/07-statistics-ja.md)：曝露が分母である理由と、一意でなくなった
   ときに壊れるもの。
 - [BK-0002](../BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md)：本判断が前提とする端末内
   評価。

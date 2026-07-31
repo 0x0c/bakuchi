@@ -76,9 +76,9 @@
 
 1. **コンフィグは公開情報になります。** アプリのパッケージから誰でも取り出せるため、実験キーと
    パラメータは公開情報として扱います。未発表機能が実験キーから特定できてはならず、それを担保する
-   命名規則は [`docs/08-operations.md`](../../docs/08-operations.md) に置きます。
+   命名規則は [`docs/08-operations-ja.md`](../../docs/08-operations-ja.md) に置きます。
 2. **割当ロジックが複数言語に存在します。** そのため
-   [`spec/bucketing.md`](../../spec/bucketing.md) を規範仕様とし、全実装を
+   [`spec/bucketing-ja.md`](../../spec/bucketing-ja.md) を規範仕様とし、全実装を
    [`spec/golden-vectors.json`](../../spec/golden-vectors.json) で CI 検証します。リモート評価なら
    不要だった代価であり、これを意図して支払うことで可用性の利得が成立します。
 3. **サーバ側のデータでターゲティングできません。** 属性はアプリが SDK に渡します。購買履歴の集計の
@@ -109,10 +109,10 @@
 
 ## 参考
 
-- [`docs/01-requirements.md`](../../docs/01-requirements.md)：この判断の起点である制約 C2、
+- [`docs/01-requirements-ja.md`](../../docs/01-requirements-ja.md)：この判断の起点である制約 C2、
   ストア審査によるロールバック遅延。
-- [`docs/02-architecture.md`](../../docs/02-architecture.md)：この設計が生む障害時の挙動の一覧。
-- [`docs/05-services.md`](../../docs/05-services.md)：直接の帰結としてデータベースを持たない
+- [`docs/02-architecture-ja.md`](../../docs/02-architecture-ja.md)：この設計が生む障害時の挙動の一覧。
+- [`docs/05-services-ja.md`](../../docs/05-services-ja.md)：直接の帰結としてデータベースを持たない
   `config-edge`。
 - [BK-0005](../BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md)：端末内評価を
   前提とするセッション内シール。
