@@ -72,9 +72,15 @@ if [ -d "$TEXTLINT_DIR/node_modules" ]; then
       failed=1
     fi
   done
+elif [ -n "${CHECK_REQUIRE_TEXTLINT:-}" ]; then
+  # CI ではスキップを許さない。検査していないのに緑になる状態は、赤より危ない。
+  printf '\033[31mFAILED: textlint が未セットアップ（CHECK_REQUIRE_TEXTLINT が設定されている）\033[0m\n'
+  printf '  npm --prefix %s ci --ignore-scripts\n' "$TEXTLINT_DIR"
+  failed=1
 else
   printf '\033[33mSKIPPED\033[0m — 未セットアップ。次を一度実行すること:\n'
   printf '  npm --prefix %s ci --ignore-scripts\n' "$TEXTLINT_DIR"
+  printf '  （CHECK_REQUIRE_TEXTLINT=1 を設定すると、スキップを失敗として扱う。CI はそうしている）\n'
 fi
 
 printf '\n'

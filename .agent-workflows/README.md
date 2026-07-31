@@ -52,6 +52,11 @@ Two gates are mechanical, and both run from `tools/check.sh`:
   `spec/golden-vectors.json`.
 - **Typography** — textlint, over the roadmap items and documentation.
 
+`.github/workflows/check.yml` runs the same script on every pull request, with
+`CHECK_REQUIRE_TEXTLINT=1` set so that a missing textlint install fails the run rather than
+skipping quietly. A gate that reports green without having checked anything is worse than a red
+one.
+
 The prose norms themselves are a review-time expectation, checked by people. Judging clarity and
 argument order needs semantic judgment that no deterministic check supplies.
 

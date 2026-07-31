@@ -1,0 +1,39 @@
+name: check
+
+# spec/bucketing.md と BK-0003 は「CI での実行は必須とし、不一致の場合はマージをブロックする」と
+# 定めている。このワークフローがその記述の実体であり、これが無ければ規範は主張にとどまる。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: .agent-workflows/document-writing/textlint/package-lock.json
+
+      # --ignore-scripts で install 時のライフサイクルスクリプトを止める（サプライチェーン対策）。
+      # ここで失敗させることで、tools/check.sh の textlint スキップ経路に落ちないようにする。
+      - name: Install textlint
+        run: npm --prefix .agent-workflows/document-writing/textlint ci --ignore-scripts
+
+      # CHECK_REQUIRE_TEXTLINT を立てて、textlint のスキップを失敗として扱う。
+      # 検査していないのに緑になる状態を CI で作らないため。
+      - name: Run gates
+        env:
+          CHECK_REQUIRE_TEXTLINT: '1'
+        run: ./tools/check.sh
