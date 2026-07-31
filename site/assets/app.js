@@ -4,6 +4,8 @@ import {
   PHASES,
   CAPABILITIES,
   RISKS,
+  DECISIONS,
+  DECISION_STATUS,
   DOCS,
   BLOB_BASE,
 } from './roadmap-data.js';
@@ -43,6 +45,10 @@ const ICONS = {
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 9v5M10 6.2v.1"/></svg>',
   alert:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2.8 18.4 17H1.6z"/><path d="M10 8v3.6M10 14.2v.1"/></svg>',
+  open:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6.4"/></svg>',
+  pause:
+    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10" cy="10" r="6.4" stroke-dasharray="2.6 2.8"/><path d="M8.4 7.8v4.4M11.6 7.8v4.4"/></svg>',
 };
 
 const icon = (name) => {
@@ -461,6 +467,72 @@ function buildRisks(mount) {
   });
 }
 
+/* ----------------------------------------------------------- decisions */
+
+function buildDecisions(mount) {
+  const body = el('tbody');
+
+  DECISIONS.forEach((d) => {
+    const st = DECISION_STATUS[d.status];
+    const phase = d.phase === null ? null : PHASES.find((p) => p.id === d.phase);
+
+    body.append(
+      el(
+        'tr',
+        {},
+        el(
+          'th',
+          { scope: 'row' },
+          el('a', { href: `${BLOB_BASE}roadmaps/${d.dir}/${d.dir}-ja.md`, text: d.id })
+        ),
+        el('td', {}, d.title, d.note ? el('small', { class: 'sub', text: d.note }) : null),
+        // 状態は色だけで伝えない。必ずアイコン + ラベルの組で出す
+        el(
+          'td',
+          {},
+          el('span', { class: `dstatus dstatus--${d.status}` }, icon(st.icon), st.label)
+        ),
+        el(
+          'td',
+          {},
+          phase
+            ? el(
+                'span',
+                { class: 'dphase' },
+                el('i', { style: `background:${phaseVar(phase.id)}`, 'aria-hidden': 'true' }),
+                phase.label
+              )
+            : el('span', { class: 'dphase dphase--none', text: '未割当' })
+        )
+      )
+    );
+  });
+
+  mount.append(
+    el(
+      'div',
+      { class: 'table-scroll' },
+      el(
+        'table',
+        { class: 'data data--decisions' },
+        el(
+          'thead',
+          {},
+          el(
+            'tr',
+            {},
+            el('th', { scope: 'col', text: 'ID' }),
+            el('th', { scope: 'col', text: '論点' }),
+            el('th', { scope: 'col', text: '状態' }),
+            el('th', { scope: 'col', text: '関係するフェーズ' })
+          )
+        ),
+        body
+      )
+    )
+  );
+}
+
 /* ---------------------------------------------------------------- docs */
 
 function buildDocs(mount) {
@@ -527,6 +599,7 @@ buildGanttTable($('#gantt-table'));
 buildPhases($('#phases'));
 buildMatrix($('#matrix-mount'));
 buildRisks($('#risks'));
+buildDecisions($('#decisions'));
 buildDocs($('#docs'));
 initTheme();
 

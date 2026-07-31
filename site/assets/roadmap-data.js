@@ -23,7 +23,7 @@ export const PHASES = [
       {
         area: 'チェックリスト',
         rows: [
-          'ADR-0001 の判断基準に照らし、本当に自前構築すべきか結論を出す',
+          'BK-0001 の判断基準に照らし、本当に自前構築すべきか結論を出す',
           '既存の DWH（BigQuery / Snowflake）の有無を確認 → あれば ClickHouse を採用しない',
           '想定イベント量とコストの試算',
           'iOS / Android チームに SDK のサイズ・起動時間予算を提示して合意を取る',
@@ -204,6 +204,87 @@ export const RISKS = [
   },
 ];
 
+/**
+ * 設計判断（BK 項目）。フェーズは各項目の「作業」節が明記しているものだけを引く。
+ * 明記のない項目は phase: null のままにする（推測で埋めない）。
+ * 出典: roadmaps 配下の各 BK 項目の日本語版（-ja.md）。
+ */
+export const DECISIONS = [
+  {
+    id: 'BK-0001',
+    title: '自前構築か既製品か',
+    status: 'accepted',
+    phase: 0,
+    dir: 'BK-0001-build-vs-buy',
+  },
+  {
+    id: 'BK-0002',
+    title: '割当をサーバではなく端末内で評価する',
+    status: 'accepted',
+    phase: 1,
+    dir: 'BK-0002-local-evaluation',
+    note: 'assignment-service は Phase 2',
+  },
+  {
+    id: 'BK-0003',
+    title: 'ネイティブ 2 実装の SDK を、ゴールデンベクタで担保する',
+    status: 'accepted',
+    phase: 1,
+    dir: 'BK-0003-native-sdks',
+  },
+  {
+    id: 'BK-0004',
+    title: '決定的バケッティングに SHA-256 を用いる',
+    status: 'accepted',
+    phase: 1,
+    dir: 'BK-0004-bucketing-hash',
+  },
+  {
+    id: 'BK-0005',
+    title: 'コンフィグをセッション内でシールする',
+    status: 'accepted',
+    phase: 1,
+    dir: 'BK-0005-session-sealed-config',
+  },
+  {
+    id: 'BK-0006',
+    title: 'ClickHouse と既存 DWH のどちらを採るか',
+    status: 'proposed',
+    phase: 0,
+    dir: 'BK-0006-event-warehouse-selection',
+    note: 'Phase 0 のチェックリスト項目そのもの',
+  },
+  {
+    id: 'BK-0007',
+    title: '共有 Kotlin Multiplatform コアの再評価',
+    status: 'deferred',
+    phase: null,
+    dir: 'BK-0007-revisit-kmp-shared-core',
+    note: '3 つの引き金のいずれかが引かれるまで着手しない',
+  },
+  {
+    id: 'BK-0008',
+    title: 'コンフィグバンドルの Ed25519 署名',
+    status: 'proposed',
+    phase: null,
+    dir: 'BK-0008-config-bundle-signing',
+  },
+  {
+    id: 'BK-0009',
+    title: '遅延到着イベントの再処理に Flink を導入する',
+    status: 'deferred',
+    phase: 3,
+    dir: 'BK-0009-flink-late-data',
+    note: 'Phase 1 では単純なコンシューマを出荷する',
+  },
+];
+
+export const DECISION_STATUS = {
+  accepted: { label: '可決', icon: 'check' },
+  proposed: { label: '提案', icon: 'open' },
+  deferred: { label: '提案（保留）', icon: 'pause' },
+};
+
 export const DOCS = [
   { file: 'docs/01-requirements-ja.md', title: '01. 要求仕様', desc: 'モバイル固有の制約が起点' },
   { file: 'docs/02-architecture-ja.md', title: '02. アーキテクチャ', desc: '3 平面の分割とシーケンス' },
@@ -214,7 +295,7 @@ export const DOCS = [
   { file: 'docs/07-statistics-ja.md', title: '07. 統計設計', desc: 'SRM、CUPED、逐次検定、多重比較' },
   { file: 'docs/08-operations-ja.md', title: '08. 運用', desc: 'SLO、リリース、ロールバック' },
   { file: 'docs/09-roadmap-ja.md', title: '09. ロードマップ', desc: 'このページの出典' },
-  { file: 'docs/adr/', title: 'ADR', desc: '主要な意思決定記録' },
+  { file: 'roadmaps/', title: 'BK 項目', desc: '設計判断と未決着の論点（日英）' },
   { file: 'spec/bucketing-ja.md', title: 'spec: バケッティング', desc: '決定的割当の規範仕様' },
   { file: 'spec/golden-vectors.json', title: 'spec: ゴールデンベクタ', desc: '全 SDK が再現すべき値' },
 ];

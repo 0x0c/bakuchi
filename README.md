@@ -6,13 +6,14 @@ bakuchi is the technology selection and design for an experimentation platform t
 a first-class citizen. The design covers the whole path end to end: delivering feature flags,
 assigning subjects to variants, collecting events, and analyzing the result statistically.
 
-## The roadmap on the web
+## The roadmap visualization page
 
 A page that visualizes the phased build plan: **https://0x0c.github.io/bakuchi/**
 
 Drawing on [docs/09-roadmap.md](docs/09-roadmap.md), the page shows a phase timeline with its
-shortest and longest estimates, the deliverables and the deliberate non-goals of each phase, and a
-map of when each area gains which capability. The source lives in [site/](site/), and a push to
+shortest and longest estimates, the deliverables and the deliberate non-goals of each phase, a map
+of when each area gains which capability, and the BK items under [roadmaps/](roadmaps/) tied to the
+phase each one bears on. The source lives in [site/](site/), and a push to
 `main` deploys it through GitHub Actions
 ([.github/workflows/pages.yml](.github/workflows/pages.yml)). There is no build step — the page is
 plain HTML, CSS, and ES modules. To read it locally, serve the directory with any static server
