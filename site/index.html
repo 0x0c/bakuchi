@@ -1,19 +1,19 @@
 <!doctype html>
-<html lang="ja" data-theme-default="auto">
+<html lang="ja">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>bakuchi ロードマップ — iOS / Android A/B テストプラットフォーム</title>
+    <title>ロードマップ — bakuchi</title>
     <meta
       name="description"
-      content="bakuchi（iOS / Android 両対応 A/B テストプラットフォーム）の段階的構築計画を、フェーズごとのタイムラインとケイパビリティ導入マップとして可視化したページ。"
+      content="bakuchi の設計判断と未決着の論点を、採番された BK 項目の一覧として表示する。"
     />
     <meta name="color-scheme" content="light dark" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="bakuchi ロードマップ" />
+    <meta property="og:title" content="ロードマップ — bakuchi" />
     <meta
       property="og:description"
-      content="一気に全部作らない。各フェーズはそれ単体で価値を出して終われるように切る。"
+      content="bakuchi の設計判断と未決着の論点を、採番された BK 項目の一覧として表示する。"
     />
     <link rel="stylesheet" href="./assets/style.css" />
     <link
@@ -26,23 +26,7 @@
 
     <header class="nav">
       <div class="wrap nav__inner">
-        <a class="nav__brand" href="./">
-          <svg class="nav__mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" fill="var(--accent)" />
-            <rect x="6" y="8" width="13" height="4" rx="2" fill="#cde2fb" />
-            <rect x="6" y="14" width="20" height="4" rx="2" fill="#ffffff" />
-            <rect x="6" y="20" width="9" height="4" rx="2" fill="#9ec5f4" />
-          </svg>
-          bakuchi
-        </a>
-        <nav class="nav__links" aria-label="ページ内">
-          <a href="#timeline">タイムライン</a>
-          <a href="#phases-section">フェーズ</a>
-          <a href="#matrix">導入マップ</a>
-          <a href="#risks-section">リスク</a>
-          <a href="#decisions-section">設計判断</a>
-          <a href="#docs-section">ドキュメント</a>
-        </nav>
+        <a class="nav__brand" href="./">bakuchi</a>
         <div class="nav__actions">
           <button
             class="icon-btn"
@@ -59,12 +43,7 @@
               <path d="M16.5 12.4A7 7 0 0 1 7.6 3.5a7 7 0 1 0 8.9 8.9Z" />
             </svg>
           </button>
-          <a
-            class="icon-btn"
-            href="https://github.com/0x0c/bakuchi"
-            aria-label="GitHub リポジトリ"
-            title="GitHub リポジトリ"
-          >
+          <a class="icon-btn" href="https://github.com/0x0c/bakuchi" aria-label="GitHub リポジトリ" title="GitHub リポジトリ">
             <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
             </svg>
@@ -73,108 +52,25 @@
       </div>
     </header>
 
-    <main id="main">
-      <section class="hero">
-        <div class="wrap">
-          <p class="eyebrow">docs/09-roadmap.md</p>
-          <h1>一気に全部作らない。</h1>
-          <p class="hero__lead">bakuchi は iOS / Android を第一級市民として扱う A/B テストプラットフォームの設計です。各フェーズは<strong>それ単体で価値を出して終われる</strong>ように切ってあります。このページはその段階的構築計画を、時間軸と領域軸の二面から可視化します。</p>
-          <div class="hero__cta">
-            <a class="btn btn--primary" href="#timeline">
-              ロードマップを見る
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
-            </a>
-            <a class="btn btn--ghost" href="https://github.com/0x0c/bakuchi/blob/main/docs/09-roadmap.md">
-              出典の Markdown
-            </a>
-          </div>
-          <div class="stats" id="stats"></div>
-        </div>
-      </section>
+    <main id="main" class="wrap">
+      <div class="pagehead">
+        <h1>ロードマップ</h1>
+        <p>主要な設計判断と、未決着の論点。採番された BK 項目として日英両方で記録している。状態ごとに束ね、束の中は採番順。</p>
+      </div>
 
-      <section class="section" id="timeline">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>フェーズのタイムライン</h2>
-            <p>横軸は Phase 0 開始からの経過週。濃い区間は最短・最長のどちらのシナリオでもそのフェーズに入る期間、淡い区間は開始・終了が前後しうる幅です。Phase 3 は終わりを定めない継続フェーズ、Phase 4 以降は要否が未定の候補です。</p>
-          </div>
+      <div id="list"></div>
 
-          <div class="card">
-            <div class="chart__toolbar">
-              <div class="legend">
-                <span class="legend__item"><span class="legend__swatch"></span>確定区間</span>
-                <span class="legend__item"><span class="legend__swatch legend__swatch--soft"></span>前後しうる範囲</span>
-                <span class="legend__item"><span class="legend__swatch legend__swatch--tentative"></span>候補（要否未定）</span>
-              </div>
-              <button class="toggle" id="gantt-table-toggle" type="button" aria-expanded="false" aria-controls="gantt-table">
-                表で見る
-              </button>
-            </div>
-            <div class="chart" id="gantt-mount"></div>
-            <div class="tableview" id="gantt-table" hidden></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="phases-section">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>各フェーズの中身</h2>
-            <p>成果物だけでなく、<strong>意図的にやらないこと</strong>と<strong>完了条件</strong>を各フェーズに明記しています。作り込みすぎを防ぐ制約は、計画のうち最も守られにくい部分です。</p>
-          </div>
-          <div class="phases" id="phases"></div>
-        </div>
-      </section>
-
-      <section class="section" id="matrix">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>ケイパビリティ導入マップ</h2>
-            <p>同じ計画を領域の軸で見たもの。「いつ何が入るか」と、同じ領域が複数フェーズにまたがって育つこと（統計判定は手動集計 → stats-service → 逐次検定、イベント基盤は単純コンシューマ → Flink）が読み取れます。</p>
-          </div>
-          <div class="card">
-            <div class="matrix-scroll" id="matrix-mount"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="risks-section">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>リスクと対処</h2>
-            <p>それぞれのリスクは、どのフェーズの仕組みで打ち消すかまで対応づけてあります。</p>
-          </div>
-          <div class="risks" id="risks"></div>
-        </div>
-      </section>
-
-      <section class="section" id="decisions-section">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>設計判断と未決着の論点</h2>
-            <p>roadmaps/ の BK 項目を、それが効くフェーズに紐づけたもの。フェーズは各項目が明記しているものだけを引いています。可決済みの判断はフェーズの前提、提案中の論点はそのフェーズを始める前に決めるべきことです。</p>
-          </div>
-          <div class="card" id="decisions"></div>
-        </div>
-      </section>
-
-      <section class="section" id="docs-section">
-        <div class="wrap">
-          <div class="section__head">
-            <h2>設計ドキュメント</h2>
-            <p>このページはロードマップだけを扱います。判断の根拠は各ドキュメントにあります。</p>
-          </div>
-          <div class="docs" id="docs"></div>
-        </div>
+      <section class="docs">
+        <h2>ドキュメント</h2>
+        <ul id="docs"></ul>
       </section>
     </main>
 
     <footer class="footer">
       <div class="wrap">
-        <p>本リポジトリは設計ドキュメントであり、実装は含みません。数値と文言の出典は <a href="https://github.com/0x0c/bakuchi/blob/main/docs/09-roadmap.md">docs/09-roadmap.md</a> です。</p>
-        <p>
-          <a href="https://github.com/0x0c/bakuchi">0x0c/bakuchi</a>
-        </p>
+        本リポジトリは設計ドキュメントであり、実装は含みません。出典は
+        <a href="https://github.com/0x0c/bakuchi/tree/main/roadmaps">roadmaps/</a> —
+        <a href="https://github.com/0x0c/bakuchi">0x0c/bakuchi</a>
       </div>
     </footer>
 
