@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "日本語のファイル専用。roadmaps/**/*-ja.md、README.md、docs/、spec/ に適用する。",
+    "日本語のファイル専用。roadmaps/**/*-ja.md、README-ja.md、docs/**/*-ja.md、spec/*-ja.md に適用する。",
     "upstream のルール集合をほぼそのまま使う。sentence-length と max-comma は、",
     "表や箇条書きを多用する技術文書向けにやや緩めてある。",
     "no-mix-dearu-desumasu の既定は箇条書きを である調 に強制するが、japanese-document-writing の規範は文書全体を敬体と定めているため、リストも ですます に揃える。見出しは体言止めなので判定対象から外す。",

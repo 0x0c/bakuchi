@@ -1,120 +1,134 @@
-# 03. 技術選定
+**English** · [日本語](03-tech-selection-ja.md)
 
-各選定は「何を最適化したか」を明示する。トレードオフのない選択は載せていない。
+# 03. Technology selection
 
-## 0. 前提: そもそも作るべきか
+Every selection below states what it optimized for. A choice with no trade-off is not recorded here.
 
-先に片付ける。**MAU 100 万未満、年間実験数 50 未満なら自前構築は割に合わない。** GrowthBook（OSS・自己ホスト可）か Firebase A/B Testing で始めるべき。判断基準の詳細は [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy-ja.md)。
+## 0. First: should we build this at all?
 
-以降は「作る」と決めた場合の設計。
+Settle that question before anything else. **Below a million monthly active users and fewer than
+fifty experiments a year, building this platform does not pay for itself.** Start with GrowthBook,
+which is open source and self-hostable, or with Firebase A/B Testing. The criteria behind that
+judgment are in [BK-0001](../roadmaps/BK-0001-build-vs-buy/BK-0001-build-vs-buy.md).
+
+Everything that follows assumes the decision came out as "build".
 
 ---
 
-## 1. クライアント SDK
+## 1. Client SDK
 
-### 選択肢
+### The options
 
-| 案 | 実装 | 長所 | 短所 |
+| Option | Implementation | Advantages | Disadvantages |
 |---|---|---|---|
-| **A. ネイティブ 2 実装** | Swift + Kotlin | 各プラットフォームで自然な API。バイナリ増分最小。導入時の反対がない。デバッグが素直 | ロジックが二重化。実装差異のリスク |
-| B. Kotlin Multiplatform | 共通コア + 薄いネイティブ層 | ロジック一本化。Android 側は追加コストほぼゼロ | iOS に Kotlin/Native ランタイムが載る（+1.5〜3MB）。Swift 側の API がぎこちなくなる（suspend の橋渡し、ジェネリクス非対応）。iOS チームの同意を得にくい |
-| C. Rust コア + UniFFI | 共通コア + 生成バインディング | バイナリ最小、性能最良、ロジック一本化 | Rust を書ける人が要る。ビルドパイプラインが複雑（xcframework、NDK） |
+| **A. Two native implementations** | Swift and Kotlin | An API that feels natural on each platform. The smallest binary growth. No resistance at adoption. Straightforward debugging | The logic exists twice, which risks divergence between the implementations |
+| B. Kotlin Multiplatform | A shared core with a thin native layer | One copy of the logic. Almost no extra cost on Android | The Kotlin/Native runtime lands in the iOS binary, adding 1.5 to 3 MB. The Swift API turns awkward, bridging suspend functions and losing generics. Hard to get the iOS team to agree |
+| C. A Rust core with UniFFI | A shared core with generated bindings | The smallest binary, the best performance, one copy of the logic | Someone has to write Rust, and the build pipeline gets complicated (xcframework, Android NDK) |
 
-### 採用: **A（ネイティブ 2 実装）+ ゴールデンベクタによる適合性テスト**
+### Selected: **A, two native implementations, with conformance tests over golden vectors**
 
-理由:
+The reasons:
 
-1. **共通化したい本質は「決定的割当」であり、それは数十行しかない。** SHA-256 とビッグエンディアン読みだけ。共有ライブラリで守るより、[ゴールデンベクタ](../spec/golden-vectors.json)を全実装の CI で検証するほうが直接的かつ強力。実際、本設計の策定時に Python / Node / Go の 3 実装で同一結果を確認済み。
-2. **C8（バイナリサイズ）は交渉可能な要件ではない。** 「A/B テスト SDK を入れるとアプリが 3MB 増えます」は iOS チームに拒否される。導入されない SDK に価値はない。
-3. 残りのロジック（キャッシュ、イベントキュー、再送）は各プラットフォームの標準機能に強く依存する部分で、共通化の利得が思ったより小さい。iOS は `URLSession` の background transfer、Android は `WorkManager` — そもそも共通化できない。
+1. **What we actually want to share is deterministic assignment, and it is only a few dozen lines** — SHA-256 and a big-endian read. Verifying the [golden vectors](../spec/golden-vectors.json) in every implementation's continuous integration is more direct and more forceful than protecting those lines behind a shared library. While drafting this design we confirmed identical results across three implementations, in Python, Node, and Go.
+2. **Constraint C8, binary size, is not negotiable.** "Adding an A/B testing SDK grows the app by 3 MB" gets rejected by the iOS team, and an SDK nobody adopts is worth nothing.
+3. The remaining logic — caching, the event queue, retransmission — leans heavily on platform facilities, so sharing it buys less than expected. iOS uses background transfers on `URLSession` and Android uses `WorkManager`; those cannot be shared in the first place.
 
-**再検討の条件（明示しておく）:** SDK が 5,000 行を超える／両実装の挙動差に起因するバグが 2 件以上出る、のいずれかで B を再評価する。
+**The conditions for revisiting, stated up front:** we reevaluate option B if the SDK grows past
+5,000 lines, or if two or more bugs trace back to behavioral differences between the two
+implementations.
 
-| 項目 | iOS | Android |
+| Item | iOS | Android |
 |---|---|---|
-| 言語 | Swift 5.9+（`strict concurrency`） | Kotlin 2.0+ |
-| 最低サポート | iOS 15 | API 24 |
-| 配布 | Swift Package Manager（CocoaPods も併走） | Maven Central（AAR） |
-| 永続化 | ファイル + Keychain（`install_id` のみ） | DataStore + EncryptedSharedPreferences |
-| ネットワーク | `URLSession`（依存ゼロ） | `OkHttp`（既に大半のアプリが持っている） |
-| 非同期 | `async/await` + 同期評価 API | Coroutines + 同期評価 API |
-| バックグラウンド送信 | `URLSession` background configuration | `WorkManager` |
+| Language | Swift 5.9+ with strict concurrency | Kotlin 2.0+ |
+| Minimum supported version | iOS 15 | API level 24 |
+| Distribution | Swift Package Manager, with CocoaPods alongside | Maven Central (AAR) |
+| Persistence | Files plus the Keychain, which holds only `install_id` | DataStore plus EncryptedSharedPreferences |
+| Networking | `URLSession`, with no dependencies | `OkHttp`, which most apps already carry |
+| Asynchrony | `async/await` plus a synchronous evaluation API | Coroutines plus a synchronous evaluation API |
+| Background transmission | A background `URLSession` configuration | `WorkManager` |
 
-**依存ライブラリを持たないこと**を強い制約にする。ホストアプリとのバージョン衝突は SDK 導入の最大の障壁。
+**Carrying no third-party dependencies** is a hard constraint. A version clash with the host app is
+the single largest obstacle to adopting an SDK.
 
 ---
 
-## 2. サーバサイド言語
+## 2. Server-side languages
 
-| サービス | 言語 | 理由 |
+| Service | Language | Reason |
 |---|---|---|
-| config-edge, event-gateway, assignment-service | **Go** | 起動が速くメモリフットプリントが小さい（オートスケール時に効く）。GC のテールレイテンシが p99 要件に合う。標準ライブラリだけで HTTP サーバが完結し依存が少ない |
-| experiment-service, metric-service, config-builder | **Go** | データプレーンと同一言語にして、**割当ロジックのコードを literally 共有する**。ここが分かれると決定性の保証が難しくなる |
-| stats-service, metric-aggregator | **Python 3.12** | 交渉の余地なし。`statsmodels` / `scipy` / `numpy` が要る。統計手法を Go で再実装するのは誤り |
-| console | **TypeScript / Next.js** | 実験一覧・結果閲覧という典型的な CRUD + ダッシュボード。React エコシステムのグラフ資産を使う |
+| config-edge, event-gateway, assignment-service | **Go** | Fast startup and a small memory footprint, which matter under autoscaling. Garbage-collection tail latency fits the p99 requirement. An HTTP server needs only the standard library, so dependencies stay few |
+| experiment-service, metric-service, config-builder | **Go** | Keeping the same language as the data plane lets the assignment logic be **one and the same code**. Splitting it across languages makes determinism hard to guarantee |
+| stats-service, metric-aggregator | **Python 3.12** | Not negotiable. The work needs `statsmodels`, `scipy`, and `numpy`, and reimplementing statistical methods in Go would be a mistake |
+| console | **TypeScript with Next.js** | Listing experiments and viewing results is ordinary create-read-update-delete work plus dashboards, and the React ecosystem's charting libraries carry most of it |
 
-**なぜ Kotlin/JVM や Node をサーバに使わないか:** JVM は起動時間とメモリで config-edge の要件（急なスパイクへのオートスケール）に不利。Node はイベント取り込みの CPU バウンドな処理（検証・圧縮）でシングルスレッドがボトルネックになる。ただし**既存組織が JVM 一色なら Kotlin/Spring で統一するほうが正しい** — 言語の技術的優位より運用可能性のほうが重い。
+**Why not Kotlin on the Java virtual machine, or Node, on the server:** startup time and memory put
+the JVM at a disadvantage against config-edge's requirement to autoscale into sudden spikes, and
+Node's single thread becomes the bottleneck in the CPU-bound parts of event ingestion, validation
+and compression. Even so, **an organization already standardized on the JVM is right to unify on
+Kotlin and Spring** — operability outweighs a language's technical edge.
 
 ---
 
-## 3. データストア
+## 3. Data stores
 
-| 用途 | 採用 | 対抗馬と却下理由 |
+| Purpose | Selected | The alternative, and why it was rejected |
 |---|---|---|
-| 実験メタデータ | **PostgreSQL 16** | MySQL でも可。`jsonb` でのターゲティング条件保持と、排他制約でのレイヤー容量管理が効くので Postgres を選好 |
-| コンフィグ配信 | **S3 + CDN**（Redis はホットキャッシュ） | DB 直読みは可用性が足りない。「静的ファイル配信」に落とすのが最も堅い |
-| スティッキー割当 | **Redis**（+ DynamoDB/Postgres で永続） | 読み書きとも高頻度・小さいレコード。TTL が要る |
-| イベントバス | **Kafka**（MSK / Confluent Cloud） | Kinesis も可。パーティション数の柔軟性と、Flink との接続の枯れ具合で Kafka |
-| イベント分析 | **ClickHouse** | **既に BigQuery / Snowflake があるならそれを使うべき**。新規導入なら ClickHouse（列指向、実験集計のようなスキャン主体クエリで圧倒的にコスト効率が良い、自己ホスト可） |
-| 生ログ保管 | **S3**（Parquet / Iceberg） | 再処理のための単一の真実。ClickHouse は再構築可能な派生データとして扱う |
+| Experiment metadata | **PostgreSQL 16** | MySQL would work too. PostgreSQL wins on holding targeting conditions in `jsonb` and on managing layer capacity through an exclusion constraint |
+| Configuration delivery | **S3 plus a CDN**, with Redis as a hot cache | Reading a database directly does not reach the availability target. Reducing delivery to serving a static file is the sturdiest option |
+| Sticky assignment | **Redis**, persisted to DynamoDB or PostgreSQL | Small records, read and written often, and they need a time to live |
+| Event bus | **Kafka**, through MSK or Confluent Cloud | Kinesis would work. Kafka wins on flexible partition counts and on how well-worn its connection to Flink is |
+| Event analysis | **ClickHouse** | **An existing BigQuery or Snowflake deployment should be used instead.** For a new deployment, ClickHouse: column-oriented, dramatically more cost-efficient on the scan-heavy queries experiment aggregation produces, and self-hostable |
+| Raw log storage | **S3**, in Parquet or Iceberg | The single source of truth for reprocessing. ClickHouse is treated as derived data that can be rebuilt |
 
-**ClickHouse を選ぶときの注意:** 運用負荷は Snowflake/BigQuery より明確に高い（レプリケーション、マージ、ディスク管理）。専任の担当がいないなら DWH に載せるほうが総コストは安い。ここは組織の状況で覆る選択。
+**A caveat on choosing ClickHouse:** its operational burden is clearly higher than Snowflake's or
+BigQuery's, covering replication, merges, and disk management. Without someone dedicated to it, the
+total cost is lower on a data warehouse. The organization's situation can reverse this choice.
 
 ---
 
-## 4. ストリーム処理
+## 4. Stream processing
 
-| 案 | 評価 |
+| Option | Assessment |
 |---|---|
-| **Flink**（採用） | イベント時刻ベースのウィンドウ、**遅延到着の一級サポート**、状態を持った重複排除。C4 の要件を直接満たす |
-| Kafka Streams | JVM 前提。Flink より軽量だが遅延データの扱いが弱い |
-| 単純な Go コンシューマ + ClickHouse 直挿入 | **Phase 1 はこれで良い。** 重複排除は ClickHouse の `ReplacingMergeTree` に任せる。Flink は遅延データの再計算が問題化してから入れる |
+| **Flink** (selected) | Event-time windows, **first-class support for late arrivals**, and stateful deduplication. It meets constraint C4 directly |
+| Kafka Streams | Requires the JVM. Lighter than Flink, but weaker with late data |
+| A simple Go consumer inserting straight into ClickHouse | **Good enough for Phase 1.** Deduplication falls to ClickHouse's `ReplacingMergeTree`. Flink arrives once recomputing late data becomes a problem |
 
-Phase 1 でいきなり Flink を入れるのは過剰。運用できるチームがいる場合のみ。
+Introducing Flink in Phase 1 is overkill, and worth it only with a team already able to operate it.
 
 ---
 
-## 5. インフラ
+## 5. Infrastructure
 
-| 項目 | 採用 | 備考 |
+| Item | Selected | Notes |
 |---|---|---|
-| コンテナ基盤 | Kubernetes（EKS） | config-edge のみ、より単純な基盤（ECS Fargate / Cloud Run）でも良い |
-| CDN | CloudFront または Fastly | `stale-if-error` と即時 purge が使えることが条件。Fastly は purge が速い（<1s）ので実験の反映時間を詰めたいなら有利 |
-| CD | Argo CD（GitOps） | 実験定義そのものは DB 管理だが、**メトリクス定義は Git 管理**にして PR レビューを通す |
-| 監視 | OpenTelemetry → Prometheus / Grafana / Tempo | SDK もクライアント側メトリクス（フェッチ成功率、初期化時間）を送る |
-| Secrets | AWS Secrets Manager / External Secrets Operator | |
-| IaC | Terraform | |
+| Container platform | Kubernetes (EKS) | For config-edge alone, something simpler such as ECS Fargate or Cloud Run would also do |
+| CDN | CloudFront or Fastly | It must support `stale-if-error` and immediate purges. Fastly purges faster (under a second), which helps if the time for an experiment to take effect needs shortening |
+| Continuous delivery | Argo CD (GitOps) | Experiment definitions live in the database, but **metric definitions live in Git** and go through pull-request review |
+| Monitoring | OpenTelemetry into Prometheus, Grafana, and Tempo | The SDK reports client-side metrics too: fetch success rate and initialization time |
+| Secrets | AWS Secrets Manager with the External Secrets Operator | |
+| Infrastructure as code | Terraform | |
 
 ---
 
-## 6. 選定サマリ
+## 6. Summary of the selection
 
 ```
-クライアント : Swift (SPM) / Kotlin (AAR) — 依存ゼロ、ゴールデンベクタで同一性を担保
-データプレーン: Go — config-edge / event-gateway / assignment-service
-コントロール  : Go（experiment / metric / builder）+ Next.js（console）
-解析         : Python + FastAPI（stats）、Flink or Go consumer（stream）
-ストア       : PostgreSQL / Redis / Kafka / ClickHouse / S3
-配信         : S3 + CDN（不変オブジェクト + ポインタ差し替え）
+Client       : Swift (SPM) / Kotlin (AAR) — no dependencies, held identical by golden vectors
+Data plane   : Go — config-edge / event-gateway / assignment-service
+Control plane: Go (experiment / metric / builder) + Next.js (console)
+Analysis     : Python + FastAPI (stats), Flink or a Go consumer (stream)
+Stores       : PostgreSQL / Redis / Kafka / ClickHouse / S3
+Delivery     : S3 + CDN (immutable objects plus a pointer swap)
 ```
 
-## 7. 意図的に採らなかったもの
+## 7. Deliberately not selected
 
-| 不採用 | 理由 |
+| Rejected | Reason |
 |---|---|
-| GraphQL（SDK 対向） | CDN でキャッシュできない。コンフィグ配信は単一 GET が正解 |
-| WebSocket / SSE でのコンフィグ push | モバイルで常時接続を維持するのはバッテリーと接続管理のコストが見合わない。次回起動反映で十分（[BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md)） |
-| サーバサイド評価を主経路にする | [BK-0002](../roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation-ja.md) |
-| Firebase Remote Config を配信層に流用 | 配信だけは楽になるが、レイヤー排他・スティッキー割当・曝露ログの整合が自前実装になり、結局二重管理になる |
-| gRPC-Web / Connect（SDK 対向） | モバイルで HTTP/JSON 以上の利得が薄く、CDN 互換性を失う |
-| exactly-once セマンティクス | at-least-once + `event_id` 冪等排除で十分。コストが見合わない |
+| GraphQL toward the SDK | It cannot be cached at the CDN. A single GET is the right shape for configuration delivery |
+| Pushing configuration over WebSocket or server-sent events | Holding a connection open on mobile costs more in battery and connection management than it returns. Taking effect at the next launch is enough ([BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config.md)) |
+| Server-side evaluation as the main path | [BK-0002](../roadmaps/BK-0002-local-evaluation/BK-0002-local-evaluation.md) |
+| Firebase Remote Config as the delivery layer | Delivery alone gets easier, but layer exclusion, sticky assignment, and consistent exposure logging all fall back to our own implementation, which leaves two systems to keep in step |
+| gRPC-Web or Connect toward the SDK | On mobile they add little over HTTP and JSON, and they cost CDN compatibility |
+| Exactly-once semantics | At-least-once plus idempotent removal by `event_id` suffices, and exactly-once does not justify its cost |

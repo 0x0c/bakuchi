@@ -1,18 +1,22 @@
-# 02. アーキテクチャ
+**English** · [日本語](02-architecture-ja.md)
 
-## 1. 全体像
+# 02. Architecture
 
-3 つの平面に分ける。分割の基準は「壊れたときに何が止まるか」であって、機能の粒度ではない。
+## 1. The whole picture
 
-- **コントロールプレーン** — 実験を定義・公開する。止まっても**稼働中の実験は動き続ける**（新規公開ができなくなるだけ）。
-- **データプレーン** — コンフィグを配り、イベントを受ける。止まると**アプリの挙動に影響する**。最高の可用性が要る。
-- **解析プレーン** — イベントを集計し結果を出す。止まっても**意思決定が遅れるだけ**。
+The system splits into three planes. The criterion for the split is what stops working when a plane
+breaks, not how finely the features divide.
 
-この非対称性が、後述の技術選定（言語・ストア・デプロイ単位）をほぼ決めている。
+- **Control plane** — defines and publishes experiments. If it stops, **running experiments keep running**; only new publications become impossible.
+- **Data plane** — delivers configuration and receives events. If it stops, **app behavior is affected**. It needs the highest availability.
+- **Analysis plane** — aggregates events and produces results. If it stops, **decisions are merely delayed**.
+
+That asymmetry settles most of the technology selection that follows — the languages, the stores,
+and the deployment units.
 
 ```mermaid
 flowchart TB
-    subgraph client["クライアント"]
+    subgraph client["Client"]
         ios["iOS App<br/>ABKit-iOS (Swift)"]
         and["Android App<br/>ABKit-Android (Kotlin)"]
         srv["Backend Services<br/>abkit-go (server SDK)"]
@@ -20,32 +24,32 @@ flowchart TB
 
     cdn["CDN (CloudFront/Fastly)<br/>ETag / stale-if-error"]
 
-    subgraph dp["データプレーン (Go)"]
-        edge["config-edge<br/>コンフィグ配信"]
-        gw["event-gateway<br/>イベント受理"]
-        asg["assignment-service<br/>サーバ側評価 / スティッキー割当"]
+    subgraph dp["Data plane (Go)"]
+        edge["config-edge<br/>configuration delivery"]
+        gw["event-gateway<br/>event ingestion"]
+        asg["assignment-service<br/>server-side evaluation / sticky assignment"]
     end
 
-    subgraph cp["コントロールプレーン"]
-        exp["experiment-service (Go)<br/>実験・レイヤー・ターゲティング"]
-        met["metric-service (Go)<br/>メトリクス定義"]
-        bld["config-builder (Go worker)<br/>コンフィグのコンパイル"]
-        con["console (Next.js)<br/>Web UI / BFF"]
+    subgraph cp["Control plane"]
+        exp["experiment-service (Go)<br/>experiments, layers, targeting"]
+        met["metric-service (Go)<br/>metric definitions"]
+        bld["config-builder (Go worker)<br/>configuration compilation"]
+        con["console (Next.js)<br/>web UI / BFF"]
     end
 
-    subgraph an["解析プレーン"]
-        flink["stream-processor (Flink)<br/>重複排除・補正・付加"]
-        agg["metric-aggregator (Python)<br/>バケット単位の事前集計"]
-        stats["stats-service (Python/FastAPI)<br/>統計判定"]
-        guard["guardrail-watcher (Go)<br/>自動停止"]
+    subgraph an["Analysis plane"]
+        flink["stream-processor (Flink)<br/>deduplication, correction, enrichment"]
+        agg["metric-aggregator (Python)<br/>per-bucket pre-aggregation"]
+        stats["stats-service (Python/FastAPI)<br/>statistical decisions"]
+        guard["guardrail-watcher (Go)<br/>automatic halt"]
     end
 
-    subgraph store["ストア"]
-        pg[("PostgreSQL<br/>実験メタデータ")]
-        redis[("Redis<br/>コンフィグ / スティッキー")]
-        kafka[["Kafka<br/>イベントバス"]]
-        ch[("ClickHouse<br/>イベント / 集計")]
-        s3[("S3<br/>コンフィグ実体 / 生ログ")]
+    subgraph store["Stores"]
+        pg[("PostgreSQL<br/>experiment metadata")]
+        redis[("Redis<br/>configuration / sticky")]
+        kafka[["Kafka<br/>event bus"]]
+        ch[("ClickHouse<br/>events / aggregates")]
+        s3[("S3<br/>configuration objects / raw logs")]
     end
 
     ios & and --> cdn --> edge
@@ -67,66 +71,71 @@ flowchart TB
     ch --> guard -- halt --> exp
 ```
 
-## 2. 何が壊れたら何が起きるか（障害設計）
+## 2. What happens when each part breaks
 
-これを先に決めてから各サービスを設計する。
+Settle this table before designing any individual service.
 
-| 故障 | 影響 | 縮退動作 |
+| Failure | Impact | Degraded behavior |
 |---|---|---|
-| CDN 障害 | コンフィグ更新が届かない | SDK はローカルキャッシュで動作継続。挙動は変わらない |
-| config-edge 全損 | 同上 | CDN が `stale-if-error` で古いオブジェクトを配り続ける |
-| Redis 全損 | オリジンのレイテンシ悪化 | config-edge が S3 の同一オブジェクトにフォールバック |
-| PostgreSQL 全損 | 実験の新規公開・変更が不可 | 稼働中の実験は無影響（コンフィグは S3/CDN 上で自己完結） |
-| event-gateway 全損 | イベントが送れない | SDK が端末内キューに滞留させ後で再送。**解析が遅れるだけ** |
-| Kafka 障害 | 同上 | gateway がローカルディスクにスプールし復旧後に流す |
-| ClickHouse 障害 | 結果が見られない | 実験の稼働には無影響 |
-| **SDK 初期化失敗** | — | バイナリ同梱デフォルトで全実験 control 相当。**アプリは必ず起動する** |
+| CDN outage | Configuration updates do not reach devices | The SDK keeps running from its local cache. Behavior does not change |
+| config-edge entirely lost | The same | The CDN keeps serving the stale object under `stale-if-error` |
+| Redis entirely lost | Origin latency degrades | config-edge falls back to the identical object in S3 |
+| PostgreSQL entirely lost | No experiment can be published or changed | Running experiments are unaffected, because the configuration is self-contained on S3 and the CDN |
+| event-gateway entirely lost | Events cannot be sent | The SDK holds events in its on-device queue and retries later. **Only the analysis is delayed** |
+| Kafka outage | The same | The gateway spools to local disk and drains after recovery |
+| ClickHouse outage | Results cannot be viewed | Running experiments are unaffected |
+| **SDK initialization failure** | — | The bundled defaults put every experiment at its control-equivalent value. **The app always starts** |
 
-設計原則: **解析プレーンの障害がユーザ体験に伝播する経路を一つも作らない。** guardrail-watcher が experiment-service を叩く矢印だけが解析→制御の依存で、これは「止める」方向にしか働かない。
+The design principle behind the table: **no path exists by which a failure in the analysis plane
+propagates to the user experience.** The arrow from guardrail-watcher to experiment-service is the
+only dependency running from analysis to control, and it can only ever stop an experiment.
 
-## 3. 主要シーケンス
+## 3. The main sequences
 
-### 3.1 アプリ起動〜割当（正常系）
+### 3.1 App startup through assignment, on the happy path
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant App
     participant SDK as ABKit SDK
-    participant Disk as ローカルキャッシュ
+    participant Disk as local cache
     participant CDN
     participant GW as event-gateway
 
     App->>SDK: start(config)
-    SDK->>Disk: 前回コンフィグを同期ロード (mmap, <10ms)
-    alt キャッシュあり
+    SDK->>Disk: load the previous configuration synchronously (mmap, <10ms)
+    alt cache present
         Disk-->>SDK: config v8421
-    else 初回起動
-        SDK->>SDK: バイナリ同梱デフォルトを使用
+    else first launch
+        SDK->>SDK: use the defaults bundled in the binary
     end
-    SDK-->>App: 即座に return（ここまでメインスレッド）
-    SDK->>SDK: 割当をシール（このセッションで使う版を確定）
+    SDK-->>App: return immediately (main thread ends here)
+    SDK->>SDK: seal the assignment (fix the version this session uses)
 
-    par バックグラウンド
+    par in the background
         SDK->>CDN: GET /v1/config (If-None-Match: "8421")
-        alt 更新あり
+        alt an update exists
             CDN-->>SDK: 200 config v8430
-            SDK->>Disk: 保存（★次回セッションから適用）
-        else 更新なし
+            SDK->>Disk: save (applied from the next session)
+        else no update
             CDN-->>SDK: 304
         end
     end
 
     App->>SDK: variant("checkout_button_v2")
-    SDK->>SDK: シール済みコンフィグで評価（純関数・I/O なし）
+    SDK->>SDK: evaluate against the sealed configuration (pure function, no I/O)
     SDK-->>App: Variant(treatment, params)
-    SDK->>SDK: 曝露イベントをキューへ（セッション内で重複排除）
-    SDK->>GW: POST /v1/events （バッチ・後述の条件で送信）
+    SDK->>SDK: queue the exposure event (deduplicated within the session)
+    SDK->>GW: POST /v1/events (batched, on the triggers described later)
 ```
 
-**要点:** フェッチしたコンフィグは**そのセッションでは使わない**。次回起動から効く。これが C1/C6 に対する構造的な答えで、詳細は [BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config-ja.md)。
+**The key point:** a fetched configuration **is not used in the session that fetched it**. It takes
+effect from the next launch. That behavior is the structural answer to constraints C1 and C6, and
+[BK-0005](../roadmaps/BK-0005-session-sealed-config/BK-0005-session-sealed-config.md) records the
+reasoning.
 
-### 3.2 実験の公開
+### 3.2 Publishing an experiment
 
 ```mermaid
 sequenceDiagram
@@ -139,21 +148,23 @@ sequenceDiagram
     participant CDN
 
     PM->>EXP: POST /experiments/{id}:publish
-    EXP->>EXP: バリデーション（重複配分・レイヤー容量・必須メトリクス）
-    EXP->>PG: 状態遷移 + 監査ログ（トランザクション）
-    EXP->>BLD: publish イベント（outbox → Kafka）
-    BLD->>PG: 全有効実験を読む
-    BLD->>BLD: (app_id × platform × sdk_version) 別にコンパイル
-    BLD->>BLD: 自己検証: 前版との差分を golden vector で回帰チェック
-    BLD->>S3: config/v8431/{app}/{platform}/{sdkver}.json を put（不変オブジェクト）
-    BLD->>S3: config/latest.json を put（ポインタのみ差し替え = アトミック切替）
-    BLD->>CDN: latest.json を purge
-    CDN-->>PM: 反映完了（< 60s）
+    EXP->>EXP: validate (overlapping allocation, layer capacity, required metrics)
+    EXP->>PG: state transition + audit log (one transaction)
+    EXP->>BLD: publish event (outbox → Kafka)
+    BLD->>PG: read every active experiment
+    BLD->>BLD: compile per (app_id × platform × sdk_version)
+    BLD->>BLD: self-check: regression-test the diff against the previous version with golden vectors
+    BLD->>S3: put config/v8431/{app}/{platform}/{sdkver}.json (immutable object)
+    BLD->>S3: put config/latest.json (swap the pointer only — an atomic switch)
+    BLD->>CDN: purge latest.json
+    CDN-->>PM: live (< 60s)
 ```
 
-**要点:** コンフィグは**不変オブジェクト + ポインタ差し替え**。ロールバックはポインタを前の版に戻すだけで数秒。部分的に壊れた状態が観測されることがない。
+**The key point:** configuration is an **immutable object plus a pointer swap**. A rollback moves
+the pointer back to the previous version and takes seconds, and no partially broken state is ever
+observable.
 
-### 3.3 ガードレール自動停止
+### 3.3 An automatic guardrail halt
 
 ```mermaid
 sequenceDiagram
@@ -163,62 +174,70 @@ sequenceDiagram
     participant BLD as config-builder
     participant Slack
 
-    loop 15 分ごと
-        W->>CH: ガードレール指標を集計（クラッシュ率・起動時間・主要 CVR）
-        alt 逐次検定で有意な悪化
+    loop every 15 minutes
+        W->>CH: aggregate guardrail metrics (crash rate, startup time, key conversion rates)
+        alt a significant regression under sequential testing
             W->>EXP: POST /experiments/{id}:halt (reason=guardrail)
-            EXP->>BLD: 再コンパイル → 全ユーザ control へ
-            W->>Slack: 通知（指標・信頼区間・停止時刻）
+            EXP->>BLD: recompile → every user to control
+            W->>Slack: notify (metric, confidence interval, time of the halt)
         end
     end
 ```
 
-## 4. サービス分割の方針
+## 4. How the services are split
 
-「Phase 1 から 10 個のサービスを立てる」のは誤り。以下の順で**割る理由が生じたときに割る**。
+Standing up ten services in Phase 1 would be a mistake. Split in the order below, **when a reason to
+split appears**.
 
-| デプロイ単位 | Phase 1 | 分割する理由 |
+| Deployment unit | Phase 1 | Reason to split it out |
 |---|---|---|
-| `config-edge` | ✅ 最初から独立 | 可用性要件が突出。他と一緒に落としたくない |
-| `event-gateway` | ✅ 最初から独立 | トラフィック特性が全く違う（書き込み一辺倒・スパイク） |
-| `control-plane`（experiment + metric + builder + console BFF） | ✅ 1 つの塊 | 内部整合性が強く、トラフィックも小さい。分ける利得がない |
-| `stats-service` | ✅ 独立 | 言語が違う（Python）。ランタイム要件が違う |
-| experiment / metric / builder の分離 | Phase 3 | builder の負荷が API を圧迫し始めたら |
-| `assignment-service` | Phase 2 | サーバ側実験を始めるとき |
+| `config-edge` | ✅ separate from the start | Its availability requirement stands far above the rest, and it must not go down with anything else |
+| `event-gateway` | ✅ separate from the start | Its traffic profile is entirely different: write-dominated and spiky |
+| `control-plane` (experiment + metric + builder + console BFF) | ✅ one unit | Internally consistent and low-traffic. Splitting it buys nothing |
+| `stats-service` | ✅ separate | A different language (Python) and different runtime requirements |
+| Separating experiment / metric / builder | Phase 3 | Once the builder's load starts crowding out the API |
+| `assignment-service` | Phase 2 | When server-side experiments begin |
 
-つまり **Phase 1 は 4 デプロイ単位**。マイクロサービスの粒度は組織とトラフィックの関数であり、最初から細かく割ると分散トランザクションの負債だけが先に来る。
+**Phase 1 therefore has four deployment units.** Microservice granularity is a function of the
+organization and the traffic; splitting finely from the start delivers the debt of distributed
+transactions before any of the benefit.
 
-## 5. サービス間通信
+## 5. Communication between services
 
-| 経路 | プロトコル | 理由 |
+| Path | Protocol | Reason |
 |---|---|---|
-| SDK → config-edge | HTTPS / JSON + gzip | CDN でキャッシュできること、curl でデバッグできることが最優先 |
-| SDK → event-gateway | HTTPS / JSON バッチ + zstd | 同上。スキーマは JSON Schema でゲートウェイ側検証 |
-| 内部サービス間（同期） | gRPC | 型安全、双方向ストリーム、コード生成 |
-| 内部（非同期） | Kafka + Protobuf | スキーマ進化、Schema Registry で互換性強制 |
-| experiment → builder | Transactional Outbox → Kafka | DB 更新とイベント発行の原子性。二重公開・公開漏れを防ぐ |
+| SDK → config-edge | HTTPS with JSON and gzip | Cacheability at the CDN and debuggability with curl outrank everything else |
+| SDK → event-gateway | HTTPS with batched JSON and zstd | The same, with the gateway validating against a JSON Schema |
+| Between internal services, synchronous | gRPC | Type safety, bidirectional streaming, and code generation |
+| Between internal services, asynchronous | Kafka with Protobuf | Schema evolution, with compatibility enforced by a schema registry |
+| experiment → builder | Transactional outbox → Kafka | Atomicity between the database update and the event, which prevents both double publication and a publication that never happens |
 
-**JSON か Protobuf か**は経路で分ける。外向き（SDK 対向）は JSON — CDN キャッシュ・人間による調査・SDK 実装の容易さが効く。内向きは Protobuf — スキーマ強制と効率が効く。統一しようとすると必ずどちらかが不幸になる。
+**JSON or Protobuf is decided per path.** Outward-facing traffic toward the SDK uses JSON, where CDN
+caching, human investigation, and ease of SDK implementation all matter. Internal traffic uses
+Protobuf, where schema enforcement and efficiency matter. Unifying on one of them always makes the
+other side worse.
 
-## 6. 識別子モデル
+## 6. The identifier model
 
 ```mermaid
 flowchart LR
-    inst["install_id<br/>UUIDv4・初回起動時に採番<br/>iOS: Keychain / Android: DataStore"]
-    user["user_id<br/>ログイン時にアプリから連携"]
-    sess["session_id<br/>フォアグラウンド 30 分で更新"]
-    stitch[("identity-graph<br/>install_id ↔ user_id<br/>時系列で保持")]
+    inst["install_id<br/>UUIDv4, generated at first launch<br/>iOS: Keychain / Android: DataStore"]
+    user["user_id<br/>supplied by the app at login"]
+    sess["session_id<br/>renewed after 30 minutes in the foreground"]
+    stitch[("identity-graph<br/>install_id ↔ user_id<br/>kept as a time series")]
 
     inst --> stitch
     user --> stitch
     inst --> sess
 ```
 
-| 単位 | 使いどころ | 注意 |
+| Unit | Where it fits | Caveat |
 |---|---|---|
-| `install_id` | 未ログイン含む全ユーザ対象の実験、オンボーディング | 再インストールで変わる（iOS Keychain は残存させるか要判断。プライバシー観点で「残さない」を既定にする） |
-| `user_id` | ログイン後の機能、複数端末で一貫させたい実験 | ログイン前は評価できない。`identify()` まで待つ |
-| `account_id` | 家族/法人アカウント単位の機能 | 単位内の相関でσが上がる → クラスタ頑健分散が必要（[07 章](07-statistics.md)） |
-| `session_id` | レイテンシ最適化など、持ち越し効果のない実験のみ | 学習効果のある UI 実験には使ってはいけない |
+| `install_id` | Experiments covering every user including the logged-out ones, and onboarding | It changes on reinstall. Whether the iOS Keychain entry should survive a reinstall is a judgment call, and privacy argues for not keeping it, which is the default here |
+| `user_id` | Features behind login, and experiments that must stay consistent across devices | It cannot be evaluated before login, so evaluation waits for `identify()` |
+| `account_id` | Features scoped to a family or corporate account | Correlation within the unit inflates the standard deviation, so the analysis needs cluster-robust variance ([chapter 07](07-statistics.md)) |
+| `session_id` | Only experiments with no carryover, such as latency optimization | It must never be used for a user-interface experiment where users learn |
 
-`identity-graph` は解析時にログイン前後を接続するために使う。**割当そのものには使わない**（割当は常に単一の ID だけに依存させる。そうしないと決定性が壊れる）。
+The `identity-graph` connects the pre-login and post-login worlds during analysis. **Assignment
+never uses it**: an assignment always depends on exactly one identifier, and doing otherwise breaks
+determinism.

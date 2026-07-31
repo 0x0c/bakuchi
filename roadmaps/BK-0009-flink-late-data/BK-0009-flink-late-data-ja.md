@@ -17,7 +17,7 @@
 
 モバイルのイベントは遅れて到着します。通信のない端末、独自の都合でバックグラウンド送信を
 スケジュールする OS、数日アプリを開かないユーザ。いずれもイベントを、それが生成された時間帯の外へ
-押し出します。[`docs/06-data-pipeline.md`](../../docs/06-data-pipeline.md) のパイプラインは、
+押し出します。[`docs/06-data-pipeline-ja.md`](../../docs/06-data-pipeline-ja.md) のパイプラインは、
 7 日のウォーターマークと日次の再計算でこれに対処します。
 
 Phase 1 では、単純なコンシューマがウェアハウスへ書き込み、重複排除をストアに任せる形で実装します。
@@ -96,10 +96,10 @@ Flink はイベントバスとウェアハウスの間に入り、重複排除�
 
 ## 参考
 
-- [`docs/06-data-pipeline.md`](../../docs/06-data-pipeline.md)：本項目が置き換えるウォーターマーク、
+- [`docs/06-data-pipeline-ja.md`](../../docs/06-data-pipeline-ja.md)：本項目が置き換えるウォーターマーク、
   再計算ポリシー、重複排除の各層。
-- [`docs/03-tech-selection.md`](../../docs/03-tech-selection.md)：ストリーム処理の選定と、
+- [`docs/03-tech-selection-ja.md`](../../docs/03-tech-selection-ja.md)：ストリーム処理の選定と、
   「Phase 1 では不要」という注記。
-- [`docs/01-requirements.md`](../../docs/01-requirements.md)：制約 C4、遅延到着と順序の不保証。
+- [`docs/01-requirements-ja.md`](../../docs/01-requirements-ja.md)：制約 C4、遅延到着と順序の不保証。
 - [BK-0006](../BK-0006-event-warehouse-selection/BK-0006-event-warehouse-selection-ja.md)：同じ
   担当者条件に支配される兄弟項目。

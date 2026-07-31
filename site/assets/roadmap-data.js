@@ -1,6 +1,6 @@
 /**
  * ロードマップの単一の情報源。
- * 出典: docs/09-roadmap.md — 内容を変えるときは両方を同時に更新する。
+ * 出典: docs/09-roadmap-ja.md — 内容を変えるときは両方を同時に更新する。
  *
  * weeks: ガントの座標（週）。
  *   minStart / minEnd = 最短シナリオ、maxStart / maxEnd = 最長シナリオ。
@@ -205,17 +205,17 @@ export const RISKS = [
 ];
 
 export const DOCS = [
-  { file: 'docs/01-requirements.md', title: '01. 要求仕様', desc: 'モバイル固有の制約が起点' },
-  { file: 'docs/02-architecture.md', title: '02. アーキテクチャ', desc: '3 平面の分割とシーケンス' },
-  { file: 'docs/03-tech-selection.md', title: '03. 技術選定', desc: '比較表と採用理由' },
-  { file: 'docs/04-client-sdk.md', title: '04. クライアント SDK', desc: 'iOS / Android の API と評価モデル' },
-  { file: 'docs/05-services.md', title: '05. サービス', desc: '責務・API・データモデル' },
-  { file: 'docs/06-data-pipeline.md', title: '06. データパイプライン', desc: '遅延到着データと時刻補正' },
-  { file: 'docs/07-statistics.md', title: '07. 統計設計', desc: 'SRM、CUPED、逐次検定、多重比較' },
-  { file: 'docs/08-operations.md', title: '08. 運用', desc: 'SLO、リリース、ロールバック' },
-  { file: 'docs/09-roadmap.md', title: '09. ロードマップ', desc: 'このページの出典' },
+  { file: 'docs/01-requirements-ja.md', title: '01. 要求仕様', desc: 'モバイル固有の制約が起点' },
+  { file: 'docs/02-architecture-ja.md', title: '02. アーキテクチャ', desc: '3 平面の分割とシーケンス' },
+  { file: 'docs/03-tech-selection-ja.md', title: '03. 技術選定', desc: '比較表と採用理由' },
+  { file: 'docs/04-client-sdk-ja.md', title: '04. クライアント SDK', desc: 'iOS / Android の API と評価モデル' },
+  { file: 'docs/05-services-ja.md', title: '05. サービス', desc: '責務・API・データモデル' },
+  { file: 'docs/06-data-pipeline-ja.md', title: '06. データパイプライン', desc: '遅延到着データと時刻補正' },
+  { file: 'docs/07-statistics-ja.md', title: '07. 統計設計', desc: 'SRM、CUPED、逐次検定、多重比較' },
+  { file: 'docs/08-operations-ja.md', title: '08. 運用', desc: 'SLO、リリース、ロールバック' },
+  { file: 'docs/09-roadmap-ja.md', title: '09. ロードマップ', desc: 'このページの出典' },
   { file: 'docs/adr/', title: 'ADR', desc: '主要な意思決定記録' },
-  { file: 'spec/bucketing.md', title: 'spec: バケッティング', desc: '決定的割当の規範仕様' },
+  { file: 'spec/bucketing-ja.md', title: 'spec: バケッティング', desc: '決定的割当の規範仕様' },
   { file: 'spec/golden-vectors.json', title: 'spec: ゴールデンベクタ', desc: '全 SDK が再現すべき値' },
 ];
 
